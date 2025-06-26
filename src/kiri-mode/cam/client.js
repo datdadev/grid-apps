@@ -1950,16 +1950,26 @@ function createPopOp(type, map) {
         bind: (ev) => {
             API.util.ui2rec(op.rec, op.inputs);
 
+            //warn about dangerous settings
             const settings  = conf.get();
-            const {tool} = new CAM.Tool(settings,op.rec.tool); //get tool by id
+            const tool = new CAM.Tool(settings,op.rec.tool); //get tool by id
             const opType = op.rec.type
             const drillOrRegister = opType == "drill" || opType == "register"
 
-            if ( !drillOrRegister && tool.type == "drill"){
+            //warn for drills being used for non-drill operations
+            if ( !drillOrRegister && tool.getType() == "drill"){
                 alerts.show(`Warning: Drills should not be used for ${opType} operations.`)
             }
-            else if ( drillOrRegister && tool.type != "drill"){
+            else if ( drillOrRegister && tool.getType() != "drill"){
                 alerts.show(`Warning: Only drills should be used for drilling operations.`)
+            }
+
+            //warn for small step-over on level ops
+
+            const stepOver = op.rec.step
+           
+            if(opType == "level" && stepOver < 0.1){
+                alerts.show(`Warning: Stepover is less than 10% of tool diameter`)
             }
 
             for (let [key, val] of Object.entries(op.rec)) {
