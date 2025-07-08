@@ -28,6 +28,10 @@ import { WJET } from '../kiri-mode/wjet/driver.js';
 
 const { time } = util;
 
+self.addEventListener('error', (e) => {
+    console.error('Worker Internal Error:', e);
+  });
+
 let debug = (self.debug === true),
     drivers = {
         DRAG,
@@ -61,9 +65,10 @@ self.alert = function(o) {
 self.uuid = ((Math.random() * Date.now()) | 0).toString(36);
 
 function minhandler(msg) {
-    let data = msg.data;
-    let seq = data.seq;
+    let {data} = msg;
+    let {seq} = data;
     let fn = minifns[seq];
+    console.log("minion sent message",{msg,seq, minifns, fn});
     if (!fn) {
         throw `missing dispatch ${seq}`;
     }

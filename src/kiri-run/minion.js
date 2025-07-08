@@ -14,6 +14,8 @@ import { codec } from '../kiri/codec.js';
 import { broker } from '../moto/broker.js';
 import { doTopShells } from '../kiri-mode/fdm/post.js';
 import { wasm_ctrl } from '../geo/wasm.js';
+import { Slicer } from "../kiri-mode/cam/slicer.js";
+// import { cam_slice } from "../kiri-mode/cam/slice.js";
 
 const clib = self.ClipperLib;
 const ctyp = clib.ClipType;
@@ -29,6 +31,7 @@ self.alert = function(o) {
 };
 
 self.onmessage = function(msg) {
+    console.log("worker sent message:", {msg,funcs});
     let data = msg.data;
     let cmd = data.cmd;
     (funcs[cmd] || funcs.bad)(data, data.seq, cmd);
@@ -162,7 +165,34 @@ const funcs = self.minion = {
 
     bad: (data, seq, cmd) => {
         reply({ seq, error: `invalid command (${cmd})` });
-    }
+    },
+
+    
+
+    cam_slice_init: () => {
+        cache.slicer = new Slicer();
+    },
+
+    cam_slice_cleanup: () => {
+        delete cache.slicer;
+    },
+
+    cam_slice: (data, seq) => {
+        const { bucket, opt } = data;
+        // log({ slice: bucket, opt });
+        cache.slicer.sliceBucket(bucket, opt, slice => {
+            // console.log({ slice });
+        }).then(data => {
+            data.forEach(rec => {
+                rec.polys = encode(rec.polys);
+                if (rec.lines) {
+                    const points = rec.lines.map(l => [l.p1, l.p2]).flat();
+                    rec.lines = encodePointArray(points);
+                }
+            });
+            reply({ seq, slices: data });
+        });
+    },
 };
 
 broker.publish("minion.started", { funcs, cache, reply, log });

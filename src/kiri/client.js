@@ -67,12 +67,12 @@ export const client = {
         } else {
             let worker = new Worker(`/lib/kiri-run/worker.js`, { type: 'module' });
             worker.onerror = (error) => {
-                console.log({ WORKER_ERROR: error });
-                error.preventDefault();
+                console.trace({ WORKER_ERROR: error });
+                // error.preventDefault();
             };
             worker.onmessageerror = (error) => {
-                console.log({ WORKER_MESSAGE_ERROR: error });
-                error.preventDefault();
+                console.trace({ WORKER_MESSAGE_ERROR: error });
+                // error.preventDefault();
             };
             return worker;
         }
@@ -115,6 +115,7 @@ export const client = {
                 reply = e.data,
                 record = running[reply.seq],
                 onreply = record ? record.fn : undefined;
+
 
             // console.log('client recv', e)
             if (reply.done) {

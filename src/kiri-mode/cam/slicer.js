@@ -23,7 +23,7 @@ const end = function () {
 
 export class Slicer {
     constructor(widget, options = { zlist: true, zline: true, lines: false }) {
-        this.minions = self.kiri_worker.minions;
+        this.minions = self?.kiri_worker?.minions;
         this.options = {};
         this.setOptions(options);
 
