@@ -2,9 +2,9 @@
 
 import { api } from './api.js';
 import { THREE } from '../../ext/three.js';
+import { space } from '../../moto/space.js';
 
 const { Vector3, Quaternion } = THREE;
-const { kiri, moto } = root;
 
 const XAXIS = new THREE.Vector3(1,0,0);
 const ZAXIS = new THREE.Vector3(0,0,1);
@@ -99,14 +99,14 @@ api.event.on('tool.mesh.face-up', () => {
     startIt();
 });
 
-api.event.on('tool.mesh.lay-flat', () => {
+export function layflat(){
     opName = 'lay flat';
     onDone = onLayFlatSelect;
     startIt();
-});
+}
 
 function scale() {
-    let cam = moto.space.internals().camera;
+    let cam = space.internals().camera;
     let dist = cam.position.distanceTo(pmesh.position);
     let scale = opName === 'camera focus' ?
         Math.min(0.25, 100 / dist) : dist / 100;
