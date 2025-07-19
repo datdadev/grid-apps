@@ -87,17 +87,19 @@ function cleanup() {
 
 api.event.on('key.esc', endIt);
 
-api.event.on('tool.camera.focus', (fn) => {
+export function cameraFocus(fn) {
     opName = 'camera focus';
     onDone = fn;
     startIt();
-});
+    
+}
 
-api.event.on('tool.mesh.face-up', () => {
+export function faceUp(){
+    console.log('face up');
     opName = 'face select';
     onDone = onFaceUpSelect;
     startIt();
-});
+};
 
 export function layflat(){
     opName = 'lay flat';

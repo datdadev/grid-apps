@@ -8,6 +8,7 @@ import { opFlip } from './cl-flip.js';
 import { selectHoles } from './cl-hole.js';
 import { surfaceAdd } from './cl-surface.js';
 import { traceAdd } from './cl-trace.js';
+import { faceUp } from '../../core/tools.js';
 
 const { MODES } = api.const;
 const { uc: UC } = api;
@@ -542,7 +543,7 @@ export function createPopOps() {
     };
 
     function angleTowardZUp() {
-        api.event.emit('tool.mesh.face-up');
+        faceUp();
     }
 
     createPopOp('index', {

@@ -20,7 +20,7 @@ import { menu as menuCAM } from '../mode/cam/init-menu.js';
 import { menu as menuFDM } from '../mode/fdm/init-menu.js';
 import { menu as menuLaser } from '../mode/laser/init-menu.js';
 import { menu as menuSLA } from '../mode/sla/init-menu.js';
-import { layflat } from './tools.js';
+import { cameraFocus, layflat } from './tools.js';
 
 let { CAM, SLA, FDM, LASER, DRAG, WJET, WEDM } = MODES,
     { client, catalog, platform, selection, stats } = api,
@@ -1780,8 +1780,7 @@ function init_two() {
     $('context-mirror').onclick = mirrorSelection;
     $('context-layflat').onclick = () => { layflat() };
     $('context-setfocus').onclick = () => {
-        api.event.emit(
-            "tool.camera.focus",
+        cameraFocus(
             ev => api.space.set_focus(undefined, ev.object.point)
         );
     };
