@@ -63,14 +63,16 @@ function checkSeed(then) {
             if (SETUP.debug) {
                 return then();
             }
-            platform.load_stl("/obj/cube.stl", function(vert) {
-                catalog.putFile("sample cube.stl", vert);
-                platform.update_bounds();
-                space.view.home();
-                setTimeout(() => { api.space.save(true) },500);
-                then();
-                api.help.show();
-            });
+            // Skip loading the sample cube
+            // platform.load_stl("/obj/cube.stl", function(vert) {
+            //     catalog.putFile("sample cube.stl", vert);
+            //     platform.update_bounds();
+            //     space.view.home();
+            //     setTimeout(() => { api.space.save(true) },500);
+            //     then();
+            //     // api.help.show(); // Disabled introduction popup on first visit
+            // });
+            then(); // Call then() directly without loading cube
             return true;
         }
     }
@@ -1259,36 +1261,16 @@ function init_one() {
     });
 
     // bind language choices
+    $('lset-zh').onclick = function() {
+        sdb.setItem('kiri-lang', 'zh');
+        api.space.reload();
+    };
     $('lset-en').onclick = function() {
         sdb.setItem('kiri-lang', 'en-us');
         api.space.reload();
     };
-    $('lset-da').onclick = function() {
-        sdb.setItem('kiri-lang', 'da-dk');
-        api.space.reload();
-    };
-    $('lset-de').onclick = function() {
-        sdb.setItem('kiri-lang', 'de-de');
-        api.space.reload();
-    };
-    $('lset-fr').onclick = function() {
-        sdb.setItem('kiri-lang', 'fr-fr');
-        api.space.reload();
-    };
-    $('lset-pl').onclick = function() {
-        sdb.setItem('kiri-lang', 'pl-pl');
-        api.space.reload();
-    };
-    $('lset-pt').onclick = function() {
-        sdb.setItem('kiri-lang', 'pt-pt');
-        api.space.reload();
-    };
-    $('lset-es').onclick = function() {
-        sdb.setItem('kiri-lang', 'es-es');
-        api.space.reload();
-    };
-    $('lset-zh').onclick = function() {
-        sdb.setItem('kiri-lang', 'zh');
+    $('lset-vi').onclick = function() {
+        sdb.setItem('kiri-lang', 'vi');
         api.space.reload();
     };
 
@@ -1735,15 +1717,22 @@ function init_two() {
     $('mode-drag').onclick = () => api.mode.set('DRAG');
     $('mode-wjet').onclick = () => api.mode.set('WJET');
     $('mode-wedm').onclick = () => api.mode.set('WEDM');
-    $('set-device').onclick = (ev) => { ev.stopPropagation(); api.show.devices() };
-    $('set-profs').onclick = (ev) => { ev.stopPropagation(); api.conf.show() };
-    $('set-tools').onclick = (ev) => { ev.stopPropagation(); api.show.tools() };
-    $('set-prefs').onclick = (ev) => { ev.stopPropagation(); api.modal.show('prefs') };
-    ui.acct.help.onclick = (ev) => { ev.stopPropagation(); api.help.show() };
-    ui.acct.don8.onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
-    ui.acct.mesh.onclick = (ev) => { ev.stopPropagation(); WIN.location = "/mesh" };
-    ui.acct.export.onclick = (ev) => { ev.stopPropagation(); profileExport() };
-    ui.acct.export.title = LANG.acct_xpo;
+    let setDeviceEl = $('set-device');
+    let setProfsEl = $('set-profs');
+    let setToolsEl = $('set-tools');
+    let setPrefsEl = $('set-prefs');
+
+    if (setDeviceEl) setDeviceEl.onclick = (ev) => { ev.stopPropagation(); api.show.devices() };
+    if (setProfsEl) setProfsEl.onclick = (ev) => { ev.stopPropagation(); api.conf.show() };
+    if (setToolsEl) setToolsEl.onclick = (ev) => { ev.stopPropagation(); api.show.tools() };
+    if (setPrefsEl) setPrefsEl.onclick = (ev) => { ev.stopPropagation(); api.modal.show('prefs') };
+    if (ui.acct.help) ui.acct.help.onclick = (ev) => { ev.stopPropagation(); api.help.show() };
+    if (ui.acct.don8) ui.acct.don8.onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
+    if (ui.acct.mesh) ui.acct.mesh.onclick = (ev) => { ev.stopPropagation(); WIN.location = "/mesh" };
+    if (ui.acct.export) {
+        ui.acct.export.onclick = (ev) => { ev.stopPropagation(); profileExport() };
+        ui.acct.export.title = LANG.acct_xpo;
+    }
     $('file-new').onclick = (ev) => { ev.stopPropagation(); workspaceNew() };
     $('file-recent').onclick = () => { api.modal.show('files') };
     $('file-import').onclick = (ev) => { api.event.import(ev); };
@@ -1800,18 +1789,24 @@ function init_two() {
     ui.modalBox.onclick = (ev) => { ev.stopPropagation() };
 
     // add app name hover info
-    $('app-info').innerText = version;
+    let appInfoEl = $('app-info');
+    if (appInfoEl) appInfoEl.innerText = version;
 
     // show topline separator when iframed
-    try { if (WIN.self !== WIN.top) $('top-sep').style.display = 'flex' } catch (e) { console.log(e) }
+    try {
+        if (WIN.self !== WIN.top) {
+            let topSepEl = $('top-sep');
+            if (topSepEl) topSepEl.style.display = 'flex';
+        }
+    } catch (e) { console.log(e) }
 
-    // warn users they are running a beta release
-    if (beta && beta > 0 && sdb.kiri_beta != beta) {
-        api.show.alert("CAUTION");
-        api.show.alert("this is a development release");
-        api.show.alert("and may not function properly");
-        sdb.kiri_beta = beta;
-    }
+    // // warn users they are running a beta release
+    // if (beta && beta > 0 && sdb.kiri_beta != beta) {
+    //     api.show.alert("CAUTION");
+    //     api.show.alert("this is a development release");
+    //     api.show.alert("and may not function properly");
+    //     sdb.kiri_beta = beta;
+    // }
 
     // hide url params but preserve version root (when present)
     let wlp = WIN.location.pathname;

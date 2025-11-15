@@ -1,7 +1,7 @@
 /** Copyright Stewart Allen <sa@grid.space> -- All Rights Reserved */
 
 const LANG = self.lang = { current: {} };
-const KDFL = 'en-us';
+const KDFL = 'vi';
 
 let lset = navigator.language.toLocaleLowerCase();
 
@@ -18,6 +18,7 @@ LANG.map = function(key) {
         case 'fr': return 'fr-fr';
         case 'pl': return 'pl-pl';
         case 'pt': return 'pt-pt';
+        case 'vi': return 'vi';
         case 'zh': return 'zh';
     }
     return KDFL;
@@ -31,7 +32,7 @@ LANG.set = function() {
     let map, key, keys = [...arguments];
     // provide default if none given
     if (keys.length === 0) {
-        keys = [lset, lset.split('-')[0], 'en'];
+        keys = [lset, lset.split('-')[0], 'vi'];
     }
     for (let i=0; i<keys.length; i++)
     {

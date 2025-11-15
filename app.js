@@ -139,6 +139,18 @@ function init(mod) {
         });
     }
     mod.add(addAppHeaders);
+    // In single mode, don't redirect /kiri to /kiri/ since we're serving from root
+    if (!single) {
+        mod.add(fullpath({
+            "/boot"            : redir((pre??"") + "/boot/", 301),
+            "/kiri"            : redir((pre??"") + "/kiri/", 301),
+            "/mesh"            : redir((pre??"") + "/mesh/", 301),
+            "/meta"            : redir((pre??"") + "/meta/", 301),
+            "/kiri/index.html" : redir((pre??"") + "/kiri/", 301),
+            "/mesh/index.html" : redir((pre??"") + "/mesh/", 301),
+            "/meta/index.html" : redir((pre??"") + "/meta/", 301)
+        }));
+    }
     mod.static("/lib/", "alt");
     mod.static("/lib/", "src");
     mod.static("/obj/", "web/obj");
@@ -146,7 +158,13 @@ function init(mod) {
     mod.static("/fon2/", "web/fon2");
     mod.static("/mesh/", "web/mesh");
     mod.static("/moto/", "web/moto");
-    mod.static("/kiri/", "web/kiri");
+    if (single) {
+        // In single mode, serve Kiri from root path
+        mod.static("/", "web/kiri");
+    } else {
+        // In multi-app mode, serve Kiri from /kiri path
+        mod.static("/kiri/", "web/kiri");
+    }
     mod.static("/boot/", "web/boot");
 
     // module loader
@@ -559,7 +577,8 @@ function cookieValue(cookie,key) {
 }
 
 function addAppHeaders(req, res, next) {
-    if ([
+    let isKiriRequest = req.app.path === "/" || req.app.path.startsWith("/?"); // Root path in single mode serves kiri
+    if (isKiriRequest || [
         "/kiri/",
         "/mesh/",
         "/lib/gpu/raster.js",

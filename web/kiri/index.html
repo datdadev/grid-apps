@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="author" content="Stewart Allen">
-    <meta name="keywords" content="3d slicer,chromebook,slicer,3d slicing,cnc,cam,toolpaths,toolpath generation,kiri,kirimoto,kiri:moto,gcode,cura,simplify 3d,prusaslicer,fdm,sla">
+    <meta name="keywords" content="3d slicer,chromebook,slicer,3d slicing,cnc,cam,toolpaths,toolpath generation,LTD's Slicing Service,kiri,kirimoto,kiri:moto,gcode,cura,simplify 3d,prusaslicer,fdm,sla">
     <meta name="copyright" content="stewart allen [sa@grid.space]">
-    <meta name="description" content="Browser-based 3D slicer, gcode and CNC toolpath generator">
-    <meta property="og:description" content="Kiri:Moto is a unique 3D slicer that runs entirely in browser and creates output for your favorite maker tools: 3D Printers, CNC Mills and Laser Cutters.">
+    <meta name="description" content="LTD's Slicing Service - Browser-based 3D slicer, gcode and CNC toolpath generator">
+    <meta property="og:description" content="LTD's Slicing Service is a unique 3D slicer that runs entirely in browser and creates output for your favorite maker tools: 3D Printers, CNC Mills and Laser Cutters.">
     <meta property="og:title" content="Browser-based 3D Slicer">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://grid.space/kiri/">
@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta http-equiv="origin-trial" content="AobHyD9RXtmfFOTcY506ANNJjG8lYuuvQ3/C7YJvprSP6Kk2pjKIBSKAUbUh64Nx6aCZaqlZ+7sSSswiIFHflgYAAAB0eyJvcmlnaW4iOiJodHRwczovL2dyaWQuc3BhY2U6NDQzIiwiZmVhdHVyZSI6IlVucmVzdHJpY3RlZFNoYXJlZEFycmF5QnVmZmVyIiwiZXhwaXJ5IjoxNzY5NDcyMDAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Kiri:Moto</title>
+    <title>LTD's Slicing Service</title>
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="favicon-mobile.png">
     <link rel="stylesheet" type="text/css" href="index.css">
@@ -31,7 +31,7 @@
 <body>
 <div id="app" class="f-col">
     <!-- hide page contents and provide loading message during initialization -->
-    <div id="curtain" class="j-center a-center"><img id="loading">Kiri:Moto is Loading</div>
+    <div id="curtain" class="j-center a-center"><img id="loading">LTD's Slicing Service is Loading</div>
 
     <!-- when running iframed, provide a separator between the menu bar and enclosing page -->
     <div id="top-sep"></div>
@@ -63,8 +63,8 @@
         <div class="grow"></div>
         <div id="app-name" class="f-col a-center top-menu">
             <span class="grow">
-                <span id="app-name-text" class="km-font">Kiri:Moto</span>
-                <div id="app-name-pop" class="top-menu-drop top-menu-center">
+                <span id="app-name-text" class="km-font">LTD's Slicing Service</span>
+                <!-- <div id="app-name-pop" class="top-menu-drop top-menu-center">
                     <div class="content">
                         <div>
                             <label id="app-info">version</label>
@@ -84,7 +84,7 @@
                             <label lk="quit">quit</label>
                         </div>
                     </div>
-                </div>
+                </div> -->
             </span>
         </div>
         <div id="doit" class="f-row a-center">
@@ -159,7 +159,7 @@
                     </div>
                 </div>
             </span>
-            <span>
+            <span style="pointer-events: none; opacity: 0.3;">
                 <i class="fas fa-code-branch"></i>
                 <label lk="mo_menu">mode</label>
                 <div class="top-menu-drop top-menu-right">
@@ -196,7 +196,7 @@
                     </div>
                 </div>
             </span>
-            <span>
+            <span style="pointer-events: none; opacity: 0.3;">
                 <i class="fas fa-cog"></i>
                 <label lk="su_menu">setup</label>
                 <div class="top-menu-drop top-menu-right">
@@ -220,7 +220,7 @@
                     </div>
                 </div>
             </span>
-            <span>
+            <span style="pointer-events: none; opacity: 0.3;">
                 <i class="fas fa-question-circle"></i>
                 <label lk="info">info</label>
                 <div class="top-menu-drop top-menu-right">
@@ -239,13 +239,8 @@
                 <div class="top-menu-drop top-menu-right">
                     <div class="content">
                         <div><label id="lset-zh">简体中文</label></div>
-                        <div><label id="lset-da">dansk</label></div>
-                        <div><label id="lset-de">deutsch</label></div>
                         <div><label id="lset-en">english</label></div>
-                        <div><label id="lset-es">español</label></div>
-                        <div><label id="lset-fr">français</label></div>
-                        <div><label id="lset-pl" class="nocap">polski</label></div>
-                        <div><label id="lset-pt">português</label></div>
+                        <div><label id="lset-vi">Tiếng Việt</label></div>
                     </div>
                 </div>
             </span>
@@ -355,17 +350,8 @@
             <!-- <div class="line-sep2"></div> -->
             <div id="slide-show"><span><i class="fa-solid fa-arrow-right"></i></span></div>
             <div class="f-col grow settings">
-                <!-- FDM -->
-                <div id="fdm-layers" class="set2-group mode-fdm"></div>
-                <div id="fdm-walls" class="set2-group mode-fdm"></div>
-                <div id="fdm-solid" class="set2-group mode-fdm"></div>
-                <div id="fdm-fill" class="set2-group mode-fdm"></div>
-                <div id="fdm-heat" class="set2-group mode-fdm"></div>
-                <div id="fdm-cool" class="set2-group mode-fdm"></div>
-                <div id="fdm-base" class="set2-group mode-fdm"></div>
-                <div id="fdm-support" class="set2-group mode-fdm"></div>
-                <div id="fdm-output" class="set2-group mode-fdm"></div>
-                <div id="fdm-expert" class="set2-group mode-fdm"></div>
+                <!-- FDM - Simplified settings -->
+                <div id="fdm-key-settings" class="set2-group mode-fdm"></div>
                 <!-- CAM -->
                 <div id="cam-tabs" class="set2-group mode-cam"></div>
                 <div id="cam-stock" class="set2-group mode-cam"></div>
@@ -424,7 +410,7 @@
             </div>
             <!-- vertical separation between workspace and right tray -->
             <div id="panel-right" class="f-col j-start settings">
-                <div id="mode-info">
+                <div id="mode-info" style="pointer-events: none; opacity: 0.6;">
                     <div><label lk="mi_devi">Device</label><span id="mode-device"></span></div>
                     <div><label lk="mi_prof">Profile</label><span id="mode-profile"></span></div>
                 </div>
@@ -500,7 +486,7 @@
         <!-- help menu -->
         <div id="mod-help" class="mdialog f-col">
             <div class="f-row j-center title">
-                <label>Kiri:Moto Help</label>
+                <label>LTD's Slicing Service Help</label>
             </div>
             <hr width="100%">
             <div class="f-col">
@@ -639,7 +625,7 @@
                 <div class="f-col grow">
                     <div class="header"><label lk="ex_job">job</label></div>
                     <div id="print-info" class="f-col box">
-                        <div><label lk="ex_fnam">file name</label><input id="print-filename" size="20" spellcheck="false" /></div>
+                        <div style="display:none;"><label lk="ex_fnam">file name</label><input id="print-filename" size="20" spellcheck="false" /></div>
                         <div><label lk="ex_fsiz">file size (bytes)</label><input id="print-filesize" size="12" disabled="true" /></div>
                         <div><label lk="ex_time">time estimate (h:m:s)</label><input id="output-time" size="12" disabled="true" /></div>
                     </div>
@@ -647,7 +633,7 @@
                 <div id="print-filament" class="f-col">
                     <div class="header"><label lk="ex_matl">material</label></div>
                     <div class="f-col box">
-                        <div><label lk="ex_dens">filament density (g/cm^3)</label><input id="print-density" size="12" value="1.25" /></div>
+                        <div style="display:none;"><label lk="ex_dens">filament density (g/cm^3)</label><input id="print-density" size="12" value="1.25" /></div>
                         <div><label lk="ex_fuse">filament used (mm)</label><input id="print-length" size="12" disabled="true" /></div>
                         <div><label lk="ex_wght">printed weight (g)</label><input id="print-weight" size="12" disabled="true" /></div>
                     </div>
@@ -657,12 +643,27 @@
             <div id="code-preview" class="f-col box">
                 <div><textarea id="code-preview-textarea"></textarea></div>
             </div>
-            <div class="header"><label lk="ex_dwnl">download</label></div>
-            <div class="f-row box">
+            <div class="header" style="display:none;"><label lk="ex_dwnl">download</label></div>
+            <div class="f-row box" style="display:none;">
                 <button id="print-download" class="grow">gcode</button>
                 <button id="print-palette" class="grow">palette</button>
                 <button id="print-zip" class="grow">zip</button>
                 <button id="print-3mf" class="grow">3mf</button>
+            </div>
+            <div class="header"><label>price calculation</label></div>
+            <div class="f-row box">
+                <div class="f-col grow">
+                    <label>weight (g)</label>
+                    <input id="print-weight-display" size="12" disabled="true" />
+                </div>
+                <div class="f-col grow">
+                    <label>time estimate</label>
+                    <input id="output-time-display" size="12" disabled="true" />
+                </div>
+                <div class="f-col grow">
+                    <label>calculated price</label>
+                    <input id="calculated-price" size="12" value="0" disabled="true" />
+                </div>
             </div>
             <div id="bambu-output" class="f-col">
                 <div class="header"><label lk="ex_bamb">send to bambu</label></div>

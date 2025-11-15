@@ -52,15 +52,22 @@ function checkReady() {
             $('app-name-text').innerText = "More Info";
             $('top-sep').style.display = 'flex';
         } else if (bootctrl) {
-            $('install').classList.add('hide');
-            $('uninstall').classList.remove('hide');
-            $('uninstall').onclick = () => {
-                bootctrl.postMessage({ clear: true, disable: true });
-                location.reload();
+            let installEl = $('install');
+            let uninstallEl = $('uninstall');
+            if (installEl) installEl.classList.add('hide');
+            if (uninstallEl) {
+                uninstallEl.classList.remove('hide');
+                uninstallEl.onclick = () => {
+                    bootctrl.postMessage({ clear: true, disable: true });
+                    location.reload();
+                }
             }
         } else {
-            $('install').onclick = () => {
-                location.replace('/boot');
+            let installEl = $('install');
+            if (installEl) {
+                installEl.onclick = () => {
+                    location.replace('/boot');
+                }
             }
         }
     }

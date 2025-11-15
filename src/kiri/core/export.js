@@ -232,19 +232,50 @@ function exportGCodeDialog(gcode, sections, info, names) {
     function calcWeight() {
         try {
         let density = $('print-density');
-        info.weight = (
-            (Math.PI * util.sqr(
-                info.settings.device.extruders[0].extFilament / 2
-            )) *
-            info.distance *
-            (parseFloat(density.value) || 1.25) /
-            1000
-        ).round(2);
+        let extFilament = info.settings?.device?.extruders?.[0]?.extFilament || 1.75;
+        let distance = info.distance || 0;
+        let densityValue = parseFloat(density.value) || 1.25;
+
+        // Check if any of these values are NaN or cause issues
+        if (isNaN(extFilament) || !isFinite(extFilament)) {
+            extFilament = 1.75; // Standard filament diameter
+        }
+        if (isNaN(distance) || !isFinite(distance)) {
+            distance = 0; // If distance is not valid, weight should be 0
+        }
+        if (isNaN(densityValue) || !isFinite(densityValue)) {
+            densityValue = 1.25; // Standard PLA density
+        }
+
+        // Perform the calculation
+        let radius = extFilament / 2;
+        let area = Math.PI * util.sqr(radius);  // Cross-sectional area
+        let volume = area * distance;  // Volume in mm^3
+        let weight = (volume * densityValue) / 1000;  // Weight in grams
+
+        // Final check to ensure the result is a number
+        if (isNaN(weight) || !isFinite(weight)) {
+            weight = 0;
+        }
+
+        info.weight = weight.round(2);
         $('print-weight').value = info.weight.toFixed(2);
+
+        // Update weight display for price calculation
+        if ($('print-weight-display')) {
+            $('print-weight-display').value = info.weight.toFixed(2);
+        }
+
+        // Calculate and update price
+        updatePrice();
+
         density.onkeyup = (ev) => {
             if (ev.key === 'Enter') calcWeight();
         };
-        } catch (e) { }
+        } catch (e) {
+            console.log("Error in calcWeight:", e);
+            $('print-weight').value = '0.00';
+        }
     }
 
     function calcTime() {
@@ -256,6 +287,38 @@ function exportGCodeDialog(gcode, sections, info, names) {
             secs = newtime - mins * 60;
 
         $('output-time').value = [pad(hours),pad(mins),pad(secs)].join(':');
+
+        // Update time display for price calculation
+        if ($('output-time-display')) {
+            $('output-time-display').value = [pad(hours),pad(mins),pad(secs)].join(':');
+        }
+
+        // Calculate and update price
+        updatePrice();
+    }
+
+    function updatePrice() {
+        try {
+            // Get weight from the material tab (print-weight field)
+            let weight = parseFloat($('print-weight').value) || 0;
+            // Get time estimate for reference (not used in calculation per requirements)
+            let timeEstimateText = $('output-time').value || '00:00:00';
+
+            // Update the display weight field
+            if ($('print-weight-display')) {
+                $('print-weight-display').value = weight.toFixed(2);
+            }
+
+            // Calculate price: printed weight * 555 + time estimate * 0
+            let price = weight * 555 + 0;  // time estimate * 0 is just 0
+
+            // Update the calculated price field
+            if ($('calculated-price')) {
+                $('calculated-price').value = price.toFixed(2);
+            }
+        } catch (e) {
+            console.log("Error calculating price:", e);
+        }
     }
 
     api.modal.show('xany');
@@ -265,7 +328,7 @@ function exportGCodeDialog(gcode, sections, info, names) {
         let preview = set.controller.exportPreview;
         $('code-preview-head').style.display = preview ? '' : 'none';
         $('code-preview').style.display = preview ? '' : 'none';
-        $('print-download').onclick = download;
+        // $('print-download').onclick = download; // Download button disabled as per requirement
         $('print-filament').style.display = fdm ? '' : 'none';
         $('print-filename').value = filename;
         $('print-filesize').value = util.comma(info.bytes);
@@ -282,36 +345,36 @@ function exportGCodeDialog(gcode, sections, info, names) {
         bindField('octo-host', 'octo-host');
         bindField('octo-apik', 'octo-apik');
 
-        // in cam mode, show zip file option
+        // in cam mode, show zip file option - DISABLED as per requirement
         let downloadZip = $('print-zip');
-        downloadZip.style.display = sections ? 'flex' : 'none';
-        downloadZip.onclick = function() {
-            let files = [];
-            for (let [ name, data ] of Object.entries(sections)) {
-                if (name.indexOf('op-') === 0) {
-                    let head = sections.header || [];
-                    let foot = sections.footer || [];
-                    files.push({
-                        name: `${name}.${fileext}`,
-                        data: [ ...head, ...data, ...foot ].join('\r\n')
-                    })
-                }
-            }
-            client.zip(files, progress => {
-                api.show.progress(progress.percent/100, "generating zip files");
-            }, output => {
-                api.show.progress(0);
-                api.util.download(output, `${$('print-filename').value}.zip`);
-            })
-        };
+        downloadZip.style.display = 'none'; // Changed to 'none' to hide zip download
+        // downloadZip.onclick = function() {  // Download functionality disabled
+        //     let files = [];
+        //     for (let [ name, data ] of Object.entries(sections)) {
+        //         if (name.indexOf('op-') === 0) {
+        //             let head = sections.header || [];
+        //             let foot = sections.footer || [];
+        //             files.push({
+        //                 name: `${name}.${fileext}`,
+        //                 data: [ ...head, ...data, ...foot ].join('\r\n')
+        //             })
+        //         }
+        //     }
+        //     client.zip(files, progress => {
+        //         api.show.progress(progress.percent/100, "generating zip files");
+        //     }, output => {
+        //         api.show.progress(0);
+        //         api.util.download(output, `${$('print-filename').value}.zip`);
+        //     })
+        // };
 
-        // in fdm mode, show 3mf file option
+        // in fdm mode, show 3mf file option - DISABLED as per requirement
         let nozzle0 = set.device?.extruders?.[0]?.extNozzle || 0.4;
         let download3MF = $('print-3mf');
-        download3MF.style.display = fdm ? 'flex' : 'none';
-        download3MF.onclick = function() {
-            gen3mf(zip => api.util.download(zip, `${$('print-filename').value}.3mf`));
-        };
+        download3MF.style.display = 'none'; // Changed to 'none' to hide 3mf download
+        // download3MF.onclick = function() {  // Download functionality disabled
+        //     gen3mf(zip => api.util.download(zip, `${$('print-filename').value}.3mf`));
+        // };
 
         // present bambu print options when selected device is bambu
         if (api.bambu) {
