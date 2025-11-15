@@ -1,20 +1,17 @@
 version: '3.8'
 
 services:
-  kiri-slicer:
-    build: .
-    container_name: kiri-slicer
+  kirimoto-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.multistage
+    container_name: kirimoto-web
     ports:
-      - "8080:8080"
-    volumes:
-      - ./data:/app/data  # Persistent data storage
-      - ./logs:/app/logs  # Log files
-    environment:
-      - NODE_ENV=production
+      - "80:80"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080"]
+      test: ["CMD", "curl", "-f", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 40s

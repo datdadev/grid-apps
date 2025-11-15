@@ -1,24 +1,26 @@
-FROM node:22-alpine
+FROM nginx:alpine
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++ git
+# Copy the nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
 
-WORKDIR /app
+# Create directories for the application
+RUN mkdir -p /usr/share/nginx/html
 
-# Copy package files first
-COPY package*.json ./
+# Copy the built application files
+COPY web/kiri /usr/share/nginx/html/kiri
+COPY web/boot /usr/share/nginx/html/boot
+COPY web/font /usr/share/nginx/html/font
+COPY web/moto /usr/share/nginx/html/moto
+COPY web/fon2 /usr/share/nginx/html/fon2
+COPY web/mesh /usr/share/nginx/html/mesh
+COPY web/obj /usr/share/nginx/html/obj
+COPY alt /usr/share/nginx/html/lib
+COPY src/wasm /usr/share/nginx/html/wasm
 
-# Install dependencies first
-RUN npm install
+# Ensure proper permissions
+RUN chmod -R 644 /usr/share/nginx/html
+RUN chmod 644 /etc/nginx/nginx.conf
 
-# Now copy all source code, ignoring the .dockerignore for build purposes
-COPY . . --chown=node:node
+EXPOSE 80
 
-# Build the application (this will generate the missing files)
-RUN npm run pack-dev
-
-# Expose port 8080
-EXPOSE 8080
-
-# Start the application
-CMD ["npm", "run", "prod"]
+CMD ["nginx", "-g", "daemon off;"]
