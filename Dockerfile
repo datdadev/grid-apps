@@ -8,17 +8,13 @@ WORKDIR /app
 # Copy package files first
 COPY package*.json ./
 
-# Copy the bin directory with the install-pre.js script
-RUN mkdir -p bin
-COPY bin/install-pre.js ./bin/
-
-# Install dependencies (this will run preinstall script)
+# Install dependencies first
 RUN npm install
 
-# Copy remaining application code
-COPY . .
+# Now copy all source code, ignoring the .dockerignore for build purposes
+COPY . . --chown=node:node
 
-# Build the application
+# Build the application (this will generate the missing files)
 RUN npm run pack-dev
 
 # Expose port 8080
