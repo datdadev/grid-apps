@@ -5,13 +5,17 @@ RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first
 COPY package*.json ./
 
-# Install dependencies
+# Copy the bin directory with the install-pre.js script
+RUN mkdir -p bin
+COPY bin/install-pre.js ./bin/
+
+# Install dependencies (this will run preinstall script)
 RUN npm install
 
-# Copy application code
+# Copy remaining application code
 COPY . .
 
 # Build the application
