@@ -37,7 +37,8 @@ function safeExec(fn) {
 
 function checkReady() {
     if (document.readyState === 'complete') {
-        let bootctrl = navigator.serviceWorker.controller;
+        // Safe check for service worker controller
+        let bootctrl = navigator.serviceWorker && navigator.serviceWorker.controller;
         console.log(`kiri | boot ctrl | ` + (bootctrl ? true : false));
         let api = kiri.api = run();
         self.$ = api.web.$;
@@ -90,3 +91,4 @@ self.moto = { };
 document.onreadystatechange = checkReady;
 
 checkReady();
+

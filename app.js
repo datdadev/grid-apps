@@ -490,10 +490,17 @@ function addCorsHeaders(req, res) {
     if (req.headers['access-control-request-private-network'] === 'true') {
         res.setHeader('Access-Control-Allow-Private-Network', 'true');
     }
-    // if (!crossOrigin) {
+
+    // Only set COOP/COEP headers for secure contexts (HTTPS or localhost)
+    const isSecureContext = req.headers['x-forwarded-proto'] === 'https' ||
+                           req.connection.encrypted ||
+                           req.headers.host.startsWith('localhost') ||
+                           req.headers.host.startsWith('127.0.0.1');
+
+    if (isSecureContext) {
         res.setHeader("Cross-Origin-Opener-Policy", 'same-origin');
         res.setHeader("Cross-Origin-Embedder-Policy", 'require-corp');
-    // }
+    }
     res.setHeader("Allow", "GET,POST,OPTIONS");
 }
 
@@ -595,3 +602,4 @@ function addAppHeaders(req, res, next) {
 }
 
 module.exports = init;
+
