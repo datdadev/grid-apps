@@ -1,7 +1,8 @@
 /** Copyright Stewart Allen <sa@grid.space> -- All Rights Reserved */
 
 const { clone } = Object;
-const CVER = 410;
+const CVER = 411;
+const AUTO_SUPPORT_VER = 411;
 
 function genID() {
     while (true) {
@@ -145,6 +146,7 @@ function device_from_code(code,mode) {
 
 // ensure settings structure is up-to-date
 function normalize(settings) {
+    const previousVersion = settings?.ver || 0;
     let defaults = conf.defaults,
         template = conf.template,
         mode = settings.mode.toLowerCase(),
@@ -177,7 +179,21 @@ function normalize(settings) {
     fill_cull_many(settings.sproc.LASER, defaults.laser.p);
     fill_cull_once(settings.controller, template.controller);
 
+    if (previousVersion < AUTO_SUPPORT_VER) {
+        enforceAutoSupport(settings.process);
+        if (settings.sproc?.FDM) {
+            Object.values(settings.sproc.FDM).forEach(enforceAutoSupport);
+        }
+    }
+
+    settings.ver = CVER;
     return settings;
+}
+
+function enforceAutoSupport(process) {
+    if (process) {
+        process.sliceSupportEnable = true;
+    }
 }
 
 // auto field renaming on import
@@ -335,7 +351,7 @@ export const conf = {
                 sliceSupportAngle: 50,
                 sliceSupportArea: 0.1,
                 sliceSupportDensity: 0.1,
-                sliceSupportEnable: false,
+                sliceSupportEnable: true,
                 sliceSupportExtra: 0,
                 sliceSupportGap: 1,
                 sliceSupportGrow: 0,
