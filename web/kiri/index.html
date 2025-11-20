@@ -2,59 +2,440 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- <meta name="author" content="Stewart Allen"> -->
-    <!-- <meta name="keywords" content="3d slicer,chromebook,slicer,3d slicing,cnc,cam,toolpaths,toolpath generation,LTD's Slicing Service,kiri,kirimoto,kiri:moto,gcode,cura,simplify 3d,prusaslicer,fdm,sla"> -->
-    <!-- <meta name="copyright" content="stewart allen [sa@grid.space]"> -->
     <meta name="description" content="LTD's Slicing Service - Browser-based 3D slicer">
-    <!-- <meta property="og:description" content="LTD's Slicing Service is a unique 3D slicer that runs entirely in browser and creates output for your favorite maker tools: 3D Printers, CNC Mills and Laser Cutters."> -->
-    <!-- <meta property="og:title" content="Browser-based 3D Slicer"> -->
-    <!-- <meta property="og:type" content="website"> -->
-    <!-- <meta property="og:url" content="https://grid.space/kiri/"> -->
-    <!-- <meta property="og:image" content="https://static.grid.space/img/logo_km_og.png"> -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta http-equiv="origin-trial" content="AobHyD9RXtmfFOTcY506ANNJjG8lYuuvQ3/C7YJvprSP6Kk2pjKIBSKAUbUh64Nx6aCZaqlZ+7sSSswiIFHflgYAAAB0eyJvcmlnaW4iOiJodHRwczovL2dyaWQuc3BhY2U6NDQzIiwiZmVhdHVyZSI6IlVucmVzdHJpY3RlZFNoYXJlZEFycmF5QnVmZmVyIiwiZXhwaXJ5IjoxNzY5NDcyMDAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>LTD's Slicing Service</title>
+
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="favicon-mobile.png">
+
+    <!-- Base Kiri styles (from v1) -->
     <link rel="stylesheet" type="text/css" href="index.css">
     <link href="manifest.json" rel="manifest">
-    <link href="../font/css/all.min.css" rel="stylesheet">
-    <!-- <script type="module" src="/lib/kiri/run/worker.js"></script> -->
-    <!-- <script type="module" src="/lib/kiri/run/minion.js"></script> -->
+
+    <!-- Font Awesome (icons) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Modern font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS (Using CDN for immediate beautification assurance, you can switch back to local) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        html, body {
+            height: 100%;
+            background-color: #f8fafc;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        /* Custom Scrollbar - Refined */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Loader Animation */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #4f46e5;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 3D Canvas Container */
+        #customer-viewer canvas {
+            outline: none;
+            width: 100% !important;
+            height: 100% !important;
+            display: block; /* Fixes tiny scrollbar issues */
+        }
+
+        /* Range Slider Styling - Made sleeker */
+        #customer-infill-amount {
+            -webkit-appearance: none;
+            background: transparent;
+            margin: 10px 0;
+        }
+        #customer-infill-amount::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #4f46e5;
+            border: 2px solid white;
+            margin-top: -8px;
+            box-shadow: 0 2px 6px rgba(79, 70, 229, 0.4);
+            cursor: grab;
+            transition: transform 0.1s;
+        }
+        #customer-infill-amount::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+            cursor: grabbing;
+        }
+        #customer-infill-amount::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #e2e8f0;
+            border-radius: 99px;
+        }
+
+        /* Hide "pro" UI */
+        #top, #progress, #render-tools, #mid {
+            display: none !important;
+        }
+    </style>
+
+    <!-- Kiri dependencies (from v1) -->
     <script src="../lib/ext/tween.js"></script>
-    <script src="../font/js/all.min.js" crossorigin="anonymous" defer></script>
+    <!-- kiri main app -->
     <script src="../lib/main/kiri.js" type="module"></script>
 </head>
-<body>
-<div id="app" class="f-col">
-    <!-- hide page contents and provide loading message during initialization -->
-    <div id="curtain" class="j-center a-center"><img id="loading">LTD's Slicing Service is Loading</div>
+
+<body class="simple-flow text-slate-600 antialiased bg-slate-50 h-full overflow-hidden">
+<div id="app" class="flex flex-col h-full">
+
+    <!-- Loading Curtain -->
+    <div id="curtain" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm transition-opacity duration-500">
+        <div class="loader w-12 h-12 mb-4 !border-4 !border-t-indigo-600"></div>
+        <div class="text-slate-600 font-medium tracking-wide animate-pulse">
+            LTD's Slicing Service is Loading
+        </div>
+    </div>
+
+    <!-- CUSTOMER-FACING SIMPLE UI -->
+    <div id="customer-shell" class="customer-shell h-full w-full">
+        <div class="flex h-full flex-col md:flex-row overflow-hidden">
+
+            <!-- LEFT: upload/settings/quote -->
+            <aside class="w-full md:w-[400px] bg-white border-r border-slate-200 flex flex-col z-30 shadow-xl md:shadow-slate-200/50 overflow-y-auto h-full relative">
+
+                <!-- Header -->
+                <div class="p-6 pb-4 border-b border-slate-100 flex-col bg-white sticky top-0 z-10">
+                    <div class="flex items-center gap-4 mb-1">
+                        <div class="w-12 h-12 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 transform transition-transform hover:scale-105">
+                            <i class="fa-solid fa-cube text-xl"></i>
+                        </div>
+                        <div class="flex flex-col">
+                            <h1 class="font-bold text-xl text-slate-900 tracking-tight">LTD's Slicing</h1>
+                            <p class="text-xs text-indigo-500 font-semibold uppercase tracking-wider">Service v2.0</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span class="text-[11px] font-medium text-emerald-700">Online · Creality K1 Ready</span>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 space-y-8 flex-col flex-1">
+
+                    <!-- 1. Upload -->
+                    <div class="flex-col space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">1. Upload Model</h2>
+                            <span id="file-status-badge"
+                                  class="text-[10px] bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md font-bold border border-slate-200">
+                                WAITING
+                            </span>
+                        </div>
+
+                        <!-- Drop zone -->
+                        <div
+                        id="customer-drop-zone"
+                        class="group relative w-full border-2 border-dashed border-slate-300
+                                rounded-2xl p-8 text-center hover:border-indigo-500
+                                hover:bg-indigo-50/50 transition-all duration-300 cursor-pointer
+                                bg-slate-50/50 flex items-center justify-center"
+                        >
+                            <input
+                            type="file"
+                            id="customer-file-input"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            accept=".stl,.obj,.3mf"
+                            >
+                            <div class="pointer-events-none flex flex-col items-center transition-transform duration-300 group-hover:-translate-y-1">
+                                <div class="w-14 h-14 bg-white text-indigo-500 shadow-sm border border-slate-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-indigo-600 group-hover:text-white group-hover:shadow-indigo-200 transition-all duration-300">
+                                    <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                                </div>
+                                <p id="customer-drop-text" class="text-sm font-semibold text-slate-700 group-hover:text-indigo-700">
+                                    Click to browse or drop STL
+                                </p>
+                                <p class="text-xs text-slate-400 mt-1 font-medium">
+                                    Supports STL, OBJ, 3MF (Max 200MB)
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Settings -->
+                    <div class="space-y-4 flex-col" id="settings-panel">
+                        <div class="flex items-center gap-2">
+                             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">2. Configuration</h2>
+                             <div class="h-px bg-slate-200 flex-1"></div>
+                        </div>
+
+                        <div class="flex-col space-y-5 bg-white rounded-xl">
+                            <!-- Infill Type -->
+                            <div class="flex-col group">
+                                <label class="block text-xs font-semibold text-slate-600 mb-2 ml-1">Infill Pattern</label>
+                                <div class="relative">
+                                    <select id="customer-infill-type"
+                                            class="w-full bg-slate-50 hover:bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white block p-3 pl-4 appearance-none transition-all shadow-sm font-medium cursor-pointer outline-none">
+                                        <option value="hex">Hexagon (Strong)</option>
+                                        <option value="grid">Grid (Standard)</option>
+                                        <option value="gyroid">Gyroid (Isotropic)</option>
+                                        <option value="lines">Lines (Fast)</option>
+                                        <option value="trihex">Tri-Hex</option>
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 group-hover:text-indigo-600 transition-colors">
+                                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Infill Density -->
+                            <div class="flex-col p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                <div class="flex justify-between mb-2 items-end">
+                                    <label class="text-xs font-semibold text-slate-600">Infill Density</label>
+                                    <span id="customer-infill-value" class="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">15%</span>
+                                </div>
+                                <input id="customer-infill-amount"
+                                       type="range"
+                                       min="0"
+                                       max="30"
+                                       step="1"
+                                       value="15"
+                                       class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-full">
+                                <div class="flex justify-between text-[10px] text-slate-400 font-medium mt-1">
+                                    <span>Hollow</span>
+                                    <span>Solid (30%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Quote -->
+                    <div class="flex-col space-y-4 pb-4">
+                         <div class="flex items-center gap-2">
+                             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">3. Summary</h2>
+                             <div class="h-px bg-slate-200 flex-1"></div>
+                        </div>
+
+                        <div class="flex-col bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 shadow-lg text-white space-y-4 relative overflow-hidden group">
+                            <!-- Decorative background blur -->
+                            <div class="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl group-hover:bg-indigo-500/30 transition-colors duration-500"></div>
+
+                            <div class="flex justify-between items-center text-sm relative z-10">
+                                <span class="text-slate-400 flex items-center gap-2">
+                                    <i class="fa-regular fa-clock"></i> Est. Time
+                                </span>
+                                <span id="customer-stat-time" class="font-mono font-medium text-indigo-200">--:--</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm relative z-10">
+                                <span class="text-slate-400 flex items-center gap-2">
+                                    <i class="fa-solid fa-weight-hanging"></i> Material
+                                </span>
+                                <span id="customer-stat-weight" class="font-mono font-medium text-indigo-200">-- g</span>
+                            </div>
+                            <div class="border-t border-slate-700/50 my-2 relative z-10"></div>
+                            <div class="flex justify-between items-center relative z-10">
+                                <span class="font-medium text-slate-300">Estimated Price</span>
+                                <span id="customer-stat-price" class="font-bold text-2xl tracking-tight text-white">--</span>
+                            </div>
+                        </div>
+
+                        <p id="customer-pricing-note" class="text-center text-xs text-slate-400 italic">
+                            Ready? Click below to analyze geometry & price.
+                        </p>
+
+                        <div class="flex gap-2">
+                            <button id="customer-slice-btn"
+                                    type="button"
+                                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm px-5 py-4 text-center inline-flex items-center justify-center transition-all shadow-lg shadow-indigo-500/30 active:scale-[0.98] hover:-translate-y-0.5">
+                                <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>
+                                Slice &amp; Get Price
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-6 bg-slate-50/80 backdrop-blur border-t border-slate-200 sticky bottom-0 z-20">
+                    <button
+                        id="customer-order-btn"
+                        class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold
+                            rounded-xl text-sm px-5 py-4 transition-all shadow-xl
+                            active:scale-[0.98] flex items-center justify-center gap-2
+                            disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        <span>Place Order Now</span>
+                        <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- RIGHT: 3D viewer -->
+            <main class="flex-1 relative bg-slate-100 flex flex-col h-[50vh] md:h-full overflow-hidden">
+                <!-- Enhanced hint bar -->
+                <div class="absolute top-6 left-6 right-6 z-10 flex justify-end pointer-events-none">
+                    <div class="pointer-events-auto px-4 py-2 bg-white/90 backdrop-blur-md rounded-full shadow-sm border border-slate-200/60 text-xs font-medium text-slate-500 flex items-center gap-3 transition-opacity hover:opacity-100 opacity-70">
+                        <div class="flex items-center gap-1">
+                            <i class="fa-solid fa-mouse text-indigo-500"></i>
+                            <span>Interact:</span>
+                        </div>
+                        <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200">Left Click: Rotate</span>
+                        <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200">Right Click: Pan</span>
+                        <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200">Scroll: Zoom</span>
+                    </div>
+                </div>
+
+                <!-- Viewer container -->
+                <div id="customer-viewer" class="w-full h-full relative bg-[#f0f2f5]">
+                    <!-- Enhanced Gradient Overlay for depth -->
+                    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-slate-50 to-slate-200 pointer-events-none"></div>
+
+                    <div id="viewer-placeholder"
+                         class="absolute inset-0 flex flex-col items-center justify-center text-slate-300 pointer-events-none z-0">
+                        <div class="w-32 h-32 rounded-full bg-slate-100 flex items-center justify-center mb-6 shadow-inner border border-slate-50">
+                             <i class="fa-solid fa-cube text-6xl opacity-20 text-indigo-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-slate-400">3D Viewer Ready</h3>
+                        <p class="text-sm text-slate-400 mt-2">Upload a model to see the magic</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- ORDER MODAL -->
+        <section id="customer-order-form"
+         class="fixed mx-auto inset-0 w-full h-full z-[999] bg-slate-900/60 backdrop-blur-sm
+                flex items-center justify-center p-4 hidden"
+         hidden>
+            <div class="flex-col bg-white rounded-3xl shadow-2xl w-full max-w-lg
+                        overflow-hidden transform transition-all scale-100
+                        animate-in fade-in zoom-in duration-200">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div class="flex-col">
+                        <h3 class="text-lg font-bold text-slate-900">Finalize Order</h3>
+                        <p class="text-xs text-slate-500">We just need a few details.</p>
+                    </div>
+                    <button id="close-order-modal" class="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-500 hover:text-slate-700 flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-times text-sm"></i>
+                    </button>
+                </div>
+
+                <form id="customer-form" class="p-6 space-y-4">
+                    <div class="flex-col">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Full Name</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-regular fa-user"></i>
+                            </div>
+                            <input id="customer-name"
+                                   type="text"
+                                   placeholder="e.g. Nguyen Van A"
+                                   autocomplete="name"
+                                   class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-3 pl-10 outline-none transition-all">
+                        </div>
+                    </div>
+                    <div class="flex-col">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Phone / Zalo</label>
+                        <div class="relative">
+                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-phone"></i>
+                            </div>
+                            <input id="customer-phone"
+                                   type="tel"
+                                   placeholder="0912 345 678"
+                                   autocomplete="tel"
+                                   class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-3 pl-10 outline-none transition-all">
+                        </div>
+                    </div>
+                    <div class="flex-col">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Special Instructions</label>
+                        <textarea id="customer-notes"
+                                  rows="3"
+                                  placeholder="Color preference, material specifics, or deadline..."
+                                  class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-3 resize-none outline-none transition-all"></textarea>
+                    </div>
+                </form>
+
+                <div class="flex-col p-6 bg-slate-50 border-t border-slate-100">
+                    <button id="customer-submit-order"
+                            type="button"
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-500/30 transition-all active:scale-[0.98] flex justify-center items-center gap-2">
+                        <span>Send Order Request</span>
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
+                    <p class="text-center text-[11px] text-slate-400 mt-3">
+                        <i class="fa-solid fa-lock mr-1"></i> Information is stored locally on your browser.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- === ORIGINAL APP STRUCTURE (KEPT FOR FUNCTIONALITY) === -->
 
     <!-- when running iframed, provide a separator between the menu bar and enclosing page -->
     <div id="top-sep"></div>
 
-    <!-- top menu bar -->
+    <!-- top menu bar (hidden by CSS above, but still here for kiri logic) -->
     <div id="top" class="f-row">
         <div class="f-row top-menu">
             <span id="view-arrange">
                 <span><i class="fas fa-shapes"></i></span>
                 <label lk="arrange">arrange</label>
             </span>
-            <span id="act-slice" style="display:none;">
-                <!-- <span><i class="fas fa-bars"></i></span>
-                <label id="label-slice" title="generate layer slices" lk="slice">preview</label> -->
-            </span>
-            <span id="act-preview" style="display:none;">
-                <!-- <span><i class="fas fa-layer-group"></i></span>
-                <label id="label-preview" title="show routing and paths" lk="preview">preview</label> -->
-            </span>
-            <span id="act-animate" style="display:none;">
-                <!-- <span><i class="fas fa-film"></i></span>
-                <label id="label-animate" title="render routing on a mesh" lk="animate">animate</label> -->
-            </span>
+            <span id="act-slice" style="display:none;"></span>
+            <span id="act-preview" style="display:none;"></span>
+            <span id="act-animate" style="display:none;"></span>
             <span id="act-export">
                 <span><i class="fas fa-file-download"></i></span>
                 <label id="label-export" title="generate gcode" lk="export">export</label>
@@ -64,27 +445,6 @@
         <div id="app-name" class="f-col a-center top-menu">
             <span class="grow">
                 <span id="app-name-text" class="km-font">LTD's Slicing Service</span>
-                <!-- <div id="app-name-pop" class="top-menu-drop top-menu-center">
-                    <div class="content">
-                        <div>
-                            <label id="app-info">version</label>
-                        </div>
-                        <hr width="100%">
-                        <div>
-                            <label id="app-mesh">mesh edit</label>
-                        </div>
-                        <hr>
-                        <div id="install">
-                            <label lk="install">install</label>
-                        </div>
-                        <div id="uninstall" class="hide">
-                            <label lk="uninstall">uninstall</label>
-                        </div>
-                        <div id="app-quit" class="hide">
-                            <label lk="quit">quit</label>
-                        </div>
-                    </div>
-                </div> -->
             </span>
         </div>
         <div id="doit" class="f-row a-center">
@@ -103,21 +463,13 @@
                             <span><i class="fas fa-file"></i></span>
                         </div>
                         <hr>
-                        <div id="file-recent" style="display:none;">
-                            <!-- <label lk="recent">recent</label>
-                            <span><i class="fas fa-list"></i></span> -->
-                        </div>
+                        <div id="file-recent" style="display:none;"></div>
                         <div id="file-import">
                             <label lk="import">import</label>
                             <span><i class="fas fa-file-upload"></i></span>
-                            <!-- required file input loader -->
-                            <input id="load-file" type="file" name="loadme" style="display:none"></input>
+                            <input id="load-file" type="file" name="loadme" style="display:none">
                         </div>
-                        <!-- <hr> -->
-                        <div id="app-export" style="display:none;">
-                            <!-- <label lk="export">export</label>
-                            <span><i class="fas fa-download"></i></span> -->
-                        </div>
+                        <div id="app-export" style="display:none;"></div>
                     </div>
                 </div>
             </span>
@@ -159,6 +511,7 @@
                     </div>
                 </div>
             </span>
+            <!-- mode menu (kept for logic, hidden via CSS) -->
             <span style="pointer-events: none; opacity: 0.3; display:none;">
                 <i class="fas fa-code-branch"></i>
                 <label lk="mo_menu">mode</label>
@@ -196,6 +549,7 @@
                     </div>
                 </div>
             </span>
+            <!-- setup menu -->
             <span style="pointer-events: none; opacity: 0.3; display:none;">
                 <i class="fas fa-cog"></i>
                 <label lk="su_menu">setup</label>
@@ -220,6 +574,7 @@
                     </div>
                 </div>
             </span>
+            <!-- info menu -->
             <span style="pointer-events: none; opacity: 0.3; display:none;">
                 <i class="fas fa-question-circle"></i>
                 <label lk="info">info</label>
@@ -248,9 +603,10 @@
     </div>
 
     <!-- line betwwen menu bar and main application windows -->
+    <div id="progress"><div id="progbar"></div><div id="progtxt">loading</div></div>    <!-- progress bar -->
     <div id="progress"><div id="progbar"></div><div id="progtxt">loading</div></div>
 
-    <!-- toolbar with mesh and rendering options -->
+    <!-- toolbar with mesh and rendering options (hidden via CSS) -->
     <div>
         <div id="render-tools" style="display:none;">
             <span id="tool-nozzle"><i class="fas fa-location-pin" title="extruder"></i>
@@ -343,29 +699,23 @@
         </div>
     </div>
 
+    <!-- main workspace (hidden via CSS) -->
     <div id="mid" class="grow f-row">
-
-        <!-- left settings menu -->
         <div id="panel-left" class="f-col j-left">
-            <!-- <div class="line-sep2"></div> -->
             <div id="slide-show"><span><i class="fa-solid fa-arrow-right"></i></span></div>
             <div class="f-col grow settings">
-                <!-- FDM - Simplified settings -->
                 <div id="fdm-key-settings" class="set2-group mode-fdm"></div>
-                <!-- CAM -->
                 <div id="cam-tabs" class="set2-group mode-cam"></div>
                 <div id="cam-stock" class="set2-group mode-cam"></div>
                 <div id="cam-limits" class="set2-group mode-cam"></div>
                 <div id="cam-output" class="set2-group mode-cam"></div>
                 <div id="cam-origin" class="set2-group mode-cam"></div>
                 <div id="cam-expert" class="set2-group mode-cam"></div>
-                <!-- LASER / 2D Cut Tools -->
                 <div id="lzr-slice" class="set2-group mode-laser"></div>
                 <div id="lzr-surface" class="set2-group mode-laser"></div>
                 <div id="lzr-knife" class="set2-group mode-laser"></div>
                 <div id="lzr-layout" class="set2-group mode-laser"></div>
                 <div id="lzr-output" class="set2-group mode-laser"></div>
-                <!-- SLA -->
                 <div id="sla-slice" class="set2-group mode-sla"></div>
                 <div id="sla-layers" class="set2-group mode-sla"></div>
                 <div id="sla-base" class="set2-group mode-sla"></div>
@@ -377,7 +727,6 @@
             <div class="chonk"></div>
         </div>
 
-        <!-- main workspace -->
         <div id="mid-mid" class="grow">
             <div id="layer-slider" class="f-col a-stretch">
                 <div id="layers" class="f-row j-center gap2"></div>
@@ -394,21 +743,16 @@
                     <div id="slider-max">&infin;</div>
                 </div>
             </div>
-            <!-- slice/preview layer slider -->
             <div id="top-slider" class="f-col grow">
-                <input id="anim-slider" type="range" min="0" max="1000" value="0"></input>
+                <input id="anim-slider" type="range" min="0" max="1000" value="0">
             </div>
-            <!-- CAM animation controls and readout -->
             <div id="layer-animate" class="f-col a-center set2-group hide"></div>
-            <!-- <div id="layer-toolpos" class="f-row a-center hide"></div> -->
         </div>
 
-        <!-- allows right tray to slide/hide but still show speeds menu -->
         <div class="f-row j-center">
             <div id="set-menu" class="f-col">
                 <div id="speeds"><div id="speedbar" class="f-col a-stretch j-center" lkt="sb_info"></div></div>
             </div>
-            <!-- vertical separation between workspace and right tray -->
             <div id="panel-right" class="f-col j-start settings">
                 <div id="mode-info" style="pointer-events: none; opacity: 0.6;">
                     <div><label lk="mi_devi">Device</label><span id="mode-device"></span></div>
@@ -435,7 +779,7 @@
                                     <div id="cam-index" title="rotate index axis">index</div>
                                     <div id="cam-lathe" title="lathe operation">lathe</div>
                                     <div id="laser-on" title="turn on laser mode">laser on</div>
-                                    <div id="laser-off"  title="turn off laser mode">laser off</div>
+                                    <div id="laser-off" title="turn off laser mode">laser off</div>
                                     <div id="cam-flip" title="flip part and load&#13;profile for other side&#13;for double-sided work">flip</div>
                                     <div id="cam-reg" title="drill registration holes&#13;along the X or Y axis&#13;for double-sided work">register</div>
                                     <div title="drill any holes matching&#13;selected tool diameter">drill</div>
@@ -459,7 +803,7 @@
         </div>
     </div>
 
-    <!-- ThreeJS container -->
+    <!-- ThreeJS container (used by kiri) -->
     <div id="container"></div>
 
     <!-- modal dialogs-->
@@ -719,15 +1063,15 @@
         <div class="mod-end"></div></div>
     </div>
 
-    <!-- prompts and other modals needed in electron -->
+    <!-- generic dialog -->
     <dialog id="dialog"></dialog>
 
-    <!-- click + drag mouse tracking  -->
+    <!-- mouse tracking -->
     <div id="tracker"></div>
 
-    <!-- EU compliance -->
+    <!-- EU compliance (kept hidden) -->
     <div id="gdpr" class="noshow" hidden style="display:none;position:fixed;width:0;height:0;overflow:hidden;opacity:0;padding:0;border:none;background:transparent;box-shadow:none;">
-        <p style="display:none;">this site uses <A href="/privacy.html" target="privacy">cookies</a> to preserve application preferences</p>
+        <p style="display:none;">this site uses <a href="/privacy.html" target="privacy">cookies</a> to preserve application preferences</p>
         <button id="gotit" class="f-col j-center" style="display:none;">got it</button>
     </div>
 
@@ -738,7 +1082,7 @@
         <div id="rnfo"></div>
     </div>
 
-    <!-- ephemeral non-modal alerts -->
+    <!-- ephemeral alerts -->
     <div id="alert-area" style="display:none;">
         <div id="alert-border">
             <div id="alert-text">alerts<br>alerts<br>alerts</div>
@@ -746,5 +1090,22 @@
     </div>
 
 </div>
+
+<!-- Simple UI controller (real logic from v1) -->
+<script type="module" src="simple-ui.js"></script>
+
+<!-- Tiny helper: keep infill label in sync (doesn't touch slicing logic) -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const infill = document.getElementById('customer-infill-amount');
+    const infillLabel = document.getElementById('customer-infill-value');
+    if (infill && infillLabel) {
+        const update = () => infillLabel.textContent = infill.value + '%';
+        infill.addEventListener('input', update);
+        update();
+    }
+});
+</script>
+
 </body>
 </html>

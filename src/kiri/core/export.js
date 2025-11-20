@@ -20,7 +20,7 @@ function localSet(key, val) {
     return api.local.set(key, val);
 }
 
-export function exportFile(options) {
+export function exportFile(options = {}) {
     let mode = api.mode.get();
     let names = api.widgets.all().map(w => w.meta ? w.meta.file : undefined)
         .filter(v => v)
@@ -39,33 +39,57 @@ export function exportFile(options) {
     }
 }
 
-function callExport(callback, mode, names) {
-    let alert = api.feature.work_alerts ? api.show.alert("Exporting") : null;
-    let gcode = [];
+function callExport(options = {}, mode, names) {
+    let alert = options.silent || !api.feature.work_alerts ? null : api.show.alert("Exporting");
+    let collectGCode = options.collectGCode;
+    if (collectGCode === undefined) {
+        collectGCode = options.silent ? false : true;
+    } else if (!options.silent && collectGCode === false) {
+        // ensure dialogs always have data when not running silently
+        collectGCode = true;
+    }
+    let gcode = collectGCode ? [] : undefined;
     let section = [];
-    let sections = { };
+    let sections = collectGCode && mode === 'CAM' ? { } : undefined;
     client.export(api.conf.get(), (line) => {
+        if (!collectGCode) {
+            return;
+        }
         if (typeof line !== 'string') {
-            if (line.section) {
+            if (line.section && sections) {
                 sections[line.section] = section = [];
             }
             return;
         }
         gcode.push(line);
-        section.push(line);
+        if (sections) {
+            section.push(line);
+        }
     }, (output, error) => {
         api.hide.alert(alert);
         if (error) {
             api.show.alert(error, 5);
-        } else if (callback) {
-            callback(gcode.join('\r\n'), output);
-        } else {
-            exportGCodeDialog(gcode, mode === 'CAM' ? sections : undefined, output, names);
+            options.onExport?.(undefined, error);
+            return;
         }
+        if (typeof options.onExport === 'function') {
+            options.onExport({
+                gcode: collectGCode ? gcode.join('\r\n') : undefined,
+                lines: collectGCode ? gcode : undefined,
+                sections: sections,
+                info: output,
+                mode,
+                names
+            });
+        }
+        if (options.silent) {
+            return;
+        }
+        exportGCodeDialog(gcode, mode === 'CAM' ? sections : undefined, output, names);
     });
 }
 
-function callExportLaser(options, names) {
+function callExportLaser(options = {}, names) {
     client.export(api.conf.get(), (line) => {
         // engine export uses lines
         // console.log({unexpected_line: line});
@@ -73,19 +97,35 @@ function callExportLaser(options, names) {
         // UI export uses output
         if (error) {
             api.show.alert(error, 5);
+        } else if (typeof options.onExport === 'function') {
+            options.onExport({
+                info: output,
+                names
+            });
+            if (options.silent) {
+                return;
+            }
         } else {
             exportLaserDialog(output, names);
         }
     });
 }
 
-function callExportSLA(options, names) {
+function callExportSLA(options = {}, names) {
     client.export(api.conf.get(), (line) => {
         api.show.progress(line.progress, "exporting");
     }, (output, error) => {
         api.show.progress(0);
         if (error) {
             api.show.alert(error, 5);
+        } else if (typeof options.onExport === 'function') {
+            options.onExport({
+                info: output,
+                names
+            });
+            if (options.silent) {
+                return;
+            }
         } else {
             sla_client.printDownload(output, api, names);
         }

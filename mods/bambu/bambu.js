@@ -564,8 +564,11 @@ self.kiri.load(api => {
     }
 
     function monitoring() {
+        let connectButton = $('bbl_connect');
         let mon = selected?.rec?.serial ?? '';
-        ui.setVisible($('bbl_connect'), select?.value && monitors.indexOf(mon) < 0);
+        if (connectButton) {
+            ui.setVisible(connectButton, select?.value && monitors.indexOf(mon) < 0);
+        }
         return mon ? true : false;
     }
 
