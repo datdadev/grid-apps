@@ -2896,9 +2896,11 @@ body.simple-flow #container canvas {
 }
 
 #customer-order-form {
-    width: 100%;
-    max-width: 640px;
-    margin: 0 auto;
+    width: 100vw;   /* hoặc 100% nếu parent là full-width */
+    max-width: none;
+    margin: 0;
+    left: 0;
+    right: 0;
 }
 
 @media (max-width: 1024px) {

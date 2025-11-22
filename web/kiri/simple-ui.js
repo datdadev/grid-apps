@@ -48,12 +48,15 @@ function safeSave(api) {
     }
 }
 
+let sliceProgress = { bar: null, wrap: null, percent: 0 };
+
 async function initSimpleUI(api) {
     if (window.__simple_ui_initialized) {
         return;
     }
     window.__simple_ui_initialized = true;
     self.kiri_simple_ui = true;
+    profileOverride = null;
 
     const dom = {
         shell: document.getElementById('customer-shell') || document.getElementById('app'),
@@ -86,7 +89,26 @@ async function initSimpleUI(api) {
         orderPhone: document.getElementById('customer-phone'),
         orderNotes: document.getElementById('customer-notes')
     };
+    sliceProgress = {
+        bar: document.getElementById('slice-progress-bar'),
+        wrap: document.getElementById('slice-progress')
+    };
     dom.sliceDefault = dom.sliceBtn?.innerHTML || SLICE_READY_HTML;
+
+    // tap into global progress to drive the bottom bar
+    const show = api.show;
+    if (show && typeof show.progress === 'function') {
+        const origProgress = show.progress.bind(show);
+        show.progress = (pct, msg) => {
+            const clamped = Math.max(0, Math.min(1, pct || 0));
+            if (clamped === 0) {
+                setSliceProgress(0, false);
+            } else {
+                setSliceProgress(Math.max(5, clamped * 100), true);
+            }
+            return origProgress(pct, msg);
+        };
+    }
 
     if (!dom.shell) {
         return;
@@ -147,6 +169,7 @@ function setupInfillControls(api, dom) {
         dom.infillType.addEventListener('change', () => {
             currentProcess.sliceFillType = fillOptions.includes(dom.infillType.value) ? dom.infillType.value : 'hex';
             safeSave(api);
+            markSettingsDirty(api, dom);
         });
     }
     if (dom.infillAmount && dom.infillValue) {
@@ -169,6 +192,7 @@ function setupInfillControls(api, dom) {
             dom.infillValue.textContent = `${percent}%`;
             currentProcess.sliceFillSparse = Math.min(1, Math.max(0, percent / 100));
             safeSave(api);
+            markSettingsDirty(api, dom);
         });
     }
     if (dom.supportToggle) {
@@ -181,6 +205,7 @@ function setupInfillControls(api, dom) {
         dom.supportToggle.addEventListener('change', () => {
             proc.sliceSupportEnable = !!dom.supportToggle.checked;
             safeSave(api);
+            markSettingsDirty(api, dom);
         });
     }
 }
@@ -226,6 +251,12 @@ function applySupportSetting(api, dom) {
         proc.sliceSupportEnable = true;
     }
     safeSave(api);
+}
+
+function markSettingsDirty(api, dom, message = 'Settings changed. Please slice again.') {
+    uiState.hasSliced = false;
+    resetStats(dom, message);
+    updateSliceAvailability(api, dom);
 }
 
 function setupUploader(api, dom) {
@@ -352,15 +383,25 @@ function setupSlicing(api, dom) {
     api.event.on('slice.begin', () => {
         uiState.slicing = true;
         setSliceButtonState(dom, true);
+        setGlobalInputsEnabled(dom, true);
+        setSliceProgress(5, true);
         if (dom.pricingNote) {
             dom.pricingNote.textContent = 'Slicing in progress…';
         }
+    });
+
+    api.event.on('slice.progress', data => {
+        // data is percent [0,1] from core show.progress when slicing
+        const pct = typeof data === 'number' ? data : (data?.percent ?? data?.progress ?? 0);
+        setSliceProgress(Math.max(5, pct * 100), true);
     });
 
     api.event.on('slice.error', error => {
         console.warn('Slicing error', error);
         uiState.slicing = false;
         setSliceButtonState(dom, false);
+        setGlobalInputsEnabled(dom, false);
+        setSliceProgress(0, false);
         if (dom.pricingNote) {
             dom.pricingNote.textContent = 'Something went wrong. Please try again.';
         }
@@ -370,6 +411,8 @@ function setupSlicing(api, dom) {
         uiState.slicing = false;
         uiState.hasSliced = true;
         setSliceButtonState(dom, false);
+        setGlobalInputsEnabled(dom, true); // keep disabled until stats are ready
+        setSliceProgress(100, true);
         if (dom.pricingNote) {
             dom.pricingNote.textContent = 'Crunching numbers…';
         }
@@ -380,6 +423,8 @@ function setupSlicing(api, dom) {
     api.event.on('preview.end', () => {
         uiState.hasSliced = true;
         updateUndoState(api, dom);
+        setSliceProgress(0, false);
+        setGlobalInputsEnabled(dom, false);
     });
 }
 
@@ -891,6 +936,38 @@ function setSliceButtonState(dom, busy) {
     dom.sliceBtn.innerHTML = busy ? SLICE_BUSY_HTML : (dom.sliceDefault || SLICE_READY_HTML);
 }
 
+function setSliceProgress(percent, visible = true) {
+    if (!sliceProgress.bar || !sliceProgress.wrap) return;
+    sliceProgress.percent = Math.min(100, Math.max(0, percent));
+    sliceProgress.bar.style.width = `${sliceProgress.percent}%`;
+    sliceProgress.wrap.style.opacity = visible && sliceProgress.percent > 0 ? 1 : 0;
+}
+
+function setGlobalInputsEnabled(dom, slicing) {
+    const disable = !!slicing;
+    // toggle whole sidebar + drop zone
+    setSettingsEnabled(dom, !disable);
+    if (dom.uploadBtn) {
+        dom.uploadBtn.disabled = disable;
+        dom.uploadBtn.classList.toggle('opacity-50', disable);
+        dom.uploadBtn.classList.toggle('cursor-not-allowed', disable);
+    }
+    if (dom.fileInput) dom.fileInput.disabled = disable;
+    if (dom.dropZone) {
+        dom.dropZone.classList.toggle('pointer-events-none', disable);
+        dom.dropZone.classList.toggle('opacity-60', disable);
+    }
+    // disable object list delete buttons
+    if (dom.objectList) {
+        dom.objectList.querySelectorAll('button').forEach(btn => {
+            btn.disabled = disable;
+        });
+    }
+    // disable slice/order buttons
+    if (dom.sliceBtn) dom.sliceBtn.disabled = disable || (self.kiri_api?.widgets.count() || 0) === 0;
+    if (dom.orderBtn) dom.orderBtn.disabled = disable || !uiState.hasSliced;
+}
+
 function updateSliceAvailability(api, dom) {
     const widgetCount = api.widgets.count();
     const hasWidgets = widgetCount > 0;
@@ -908,6 +985,7 @@ function updateUploadStatus(dom, label) {
     const normalized = (label || '').trim();
     const lower = normalized.toLowerCase();
     const hasFile = normalized.length > 0 && lower !== 'no file';
+    setSliceProgress(0, false);
     if (status) {
         status.textContent = normalized || 'No File';
         status.classList.toggle('bg-slate-100', !hasFile);
@@ -927,6 +1005,9 @@ function setSettingsEnabled(dom, enabled) {
     }
     dom.settingsPanel.classList.toggle('opacity-50', !enabled);
     dom.settingsPanel.classList.toggle('pointer-events-none', !enabled);
+    dom.settingsPanel.querySelectorAll('input, select, button').forEach(el => {
+        el.disabled = !enabled;
+    });
 }
 
 function setViewerPlaceholderVisible(dom, visible) {

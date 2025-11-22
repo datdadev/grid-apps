@@ -562,13 +562,18 @@
                     </div>
                 </div>
             </main>
+
+            <!-- Slice Progress -->
+            <div id="slice-progress" class="absolute bottom-0 left-[400px] right-0 h-2 bg-slate-200/80 overflow-hidden mb-0 pointer-events-none opacity-0 transition-opacity duration-200 z-20 shadow-sm">
+                <div id="slice-progress-bar" class="h-full w-0 bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 transition-all duration-150 ease-linear"></div>
+            </div>
         </div>
 
         <!-- ORDER MODAL -->
         <section id="customer-order-form"
          class="fixed mx-auto inset-0 w-full h-full z-[999] bg-slate-900/60 backdrop-blur-sm
                 flex items-center justify-center p-4 hidden"
-         hidden>
+         >
             <div class="flex-col bg-white rounded-3xl shadow-2xl w-full max-w-lg
                         overflow-hidden transform transition-all scale-100
                         animate-in fade-in zoom-in duration-200">
@@ -612,7 +617,7 @@
                     <div class="flex-col">
                         <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Special Instructions</label>
                         <textarea id="customer-notes"
-                                  rows="3"
+                                  rows="5"
                                   placeholder="Color preference, material specifics, or deadline..."
                                   class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-3 resize-none outline-none transition-all"></textarea>
                     </div>
