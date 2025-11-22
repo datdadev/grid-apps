@@ -1,0 +1,16 @@
+{
+  "description": "Simple UI overrides for Creality K1. Edit speeds/layer/infill here without touching code.",
+  "device": {
+    "gcodeTime": 0.62
+  },
+  "process": {
+    "sliceHeight": 0.2,
+    "sliceShells": 2,
+    "sliceFillSparse": 0.15,
+    "sliceSupportEnable": true,
+    "outputFeedrate": 300,
+    "outputFeedratePrint": 300,
+    "outputFeedrateTravel": 500,
+    "outputFeedrateFirst": 60
+  }
+}

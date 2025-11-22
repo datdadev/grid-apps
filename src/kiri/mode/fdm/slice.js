@@ -1815,11 +1815,17 @@ export function supports(settings, widget) {
         }
         let ray = new THREE.Raycaster(point, dir);
         let int = ray.intersectObjects([ mesh, platform ], false);
-        if (int && int.length && int[0].distance > 0.5) {
-            let mid = new THREE.Vector3().add(point).add(int[0].point).divideScalar(2);
-            add.push({from: point, to: int[0].point, mid});
-            point.added = true;
+        if (!int || !int.length || int[0].distance <= 0.5) {
+            return;
         }
+        // only keep supports that terminate on the build plate (ignore supports on model)
+        const hit = int[0];
+        if (hit.object !== platform) {
+            return;
+        }
+        let mid = new THREE.Vector3().add(point).add(hit.point).divideScalar(2);
+        add.push({from: point, to: hit.point, mid});
+        point.added = true;
     }
     function tf(a, b, c) {
         let dab = a.distanceTo(b);

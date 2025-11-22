@@ -87,42 +87,180 @@
         /* 3D Canvas Container */
         #customer-viewer canvas {
             outline: none;
+            position: absolute;
             width: 100% !important;
             height: 100% !important;
             display: block; /* Fixes tiny scrollbar issues */
         }
-
-        /* Range Slider Styling - Made sleeker */
-        #customer-infill-amount {
-            -webkit-appearance: none;
-            background: transparent;
-            margin: 10px 0;
+        /* Ensure the Kiri container obeys the viewer window instead of the full page */
+        #kiri-view-window {
+            position: absolute;
+            inset: 0;
         }
-        #customer-infill-amount::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #4f46e5;
-            border: 2px solid white;
-            margin-top: -8px;
-            box-shadow: 0 2px 6px rgba(79, 70, 229, 0.4);
-            cursor: grab;
-            transition: transform 0.1s;
-        }
-        #customer-infill-amount::-webkit-slider-thumb:active {
-            transform: scale(1.1);
-            cursor: grabbing;
-        }
-        #customer-infill-amount::-webkit-slider-runnable-track {
+        #kiri-view-window #container {
+            position: absolute;
+            inset: 0;
             width: 100%;
-            height: 6px;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* --- Modern minimal range slider (horizontal) --- */
+        input[type=range].modern-range {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 8px 0;
+        }
+        input[type=range].modern-range:focus {
+            outline: none;
+        }
+        input[type=range].modern-range::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px; /* Thinner track for minimal look */
             cursor: pointer;
             background: #e2e8f0;
-            border-radius: 99px;
+            border-radius: 999px;
+            transition: background 0.2s;
+        }
+        input[type=range].modern-range:hover::-webkit-slider-runnable-track {
+            background: #cbd5e1;
+        }
+        input[type=range].modern-range::-webkit-slider-thumb {
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 5px solid #4f46e5; /* Color ring style */
+            cursor: grab;
+            -webkit-appearance: none;
+            margin-top: -7px; /* Centering: (18px thumb - 4px track) / 2 * -1 */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.15s ease;
+        }
+        input[type=range].modern-range:hover::-webkit-slider-thumb {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(79, 70, 229, 0.25);
+        }
+        input[type=range].modern-range:active::-webkit-slider-thumb {
+            cursor: grabbing;
+            transform: scale(0.95);
+            border-width: 6px;
+        }
+        input[type=range].modern-range::-moz-range-track {
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+        input[type=range].modern-range:hover::-moz-range-track {
+            background: #cbd5e1;
+        }
+        input[type=range].modern-range::-moz-range-thumb {
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 5px solid #4f46e5;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.15s ease;
+            cursor: grab;
+        }
+        input[type=range].modern-range:hover::-moz-range-thumb {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(79, 70, 229, 0.25);
+        }
+        input[type=range].modern-range:active::-moz-range-thumb {
+            cursor: grabbing;
+            transform: scale(0.95);
+            border-width: 6px;
         }
 
-        /* Hide "pro" UI */
+        /* --- MODERN SLICE SCRUBBER (VERTICAL) --- */
+        .slice-scrubber {
+            writing-mode: vertical-lr;
+            direction: rtl; /* invert so max is at top */
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px; /* Clickable width area */
+            background: transparent;
+            display: block;
+            height: calc(100vh - 250px);
+            max-height: calc(100vh - 240px);
+            margin: 0 auto;
+            cursor: pointer;
+        }
+        .slice-scrubber:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        /* Webkit Track (Vertical) */
+        .slice-scrubber::-webkit-slider-runnable-track {
+            width: 5px; /* Very thin hairline track */
+            background: #cbd5e1;
+            border-radius: 99px;
+            border: none;
+        }
+        /* Webkit Thumb (Vertical) */
+        .slice-scrubber::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5;
+            border: 3px solid #ffffff;
+            margin-left: -7.5px; /* Center horizontally: -((20px thumb - 2px track)/2) */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(79, 70, 229, 0.1);
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .slice-scrubber:hover::-webkit-slider-thumb {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        .slice-scrubber:active::-webkit-slider-thumb {
+            transform: scale(1.0);
+            background: #4338ca;
+            cursor: grabbing;
+        }
+        .slice-scrubber:disabled::-webkit-slider-thumb {
+            background: #94a3b8;
+            border-color: #f1f5f9;
+            box-shadow: none;
+        }
+        /* Firefox track/thumb */
+        .slice-scrubber::-moz-range-track {
+            width: 2px;
+            background: #cbd5e1;
+            border-radius: 99px;
+            border: none;
+        }
+        .slice-scrubber::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5;
+            border: 3px solid #ffffff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(79, 70, 229, 0.1);
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .slice-scrubber:hover::-moz-range-thumb {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        .slice-scrubber:active::-moz-range-thumb {
+            transform: scale(1.0);
+            background: #4338ca;
+            cursor: grabbing;
+        }
+        .slice-scrubber:disabled::-moz-range-thumb {
+            background: #94a3b8;
+            border-color: #f1f5f9;
+            box-shadow: none;
+        }
+/* Hide "pro" UI */
         #top, #progress, #render-tools, #mid {
             display: none !important;
         }
@@ -134,8 +272,8 @@
     <script src="../lib/main/kiri.js" type="module"></script>
 </head>
 
-<body class="simple-flow text-slate-600 antialiased bg-slate-50 h-full overflow-hidden">
-<div id="app" class="flex flex-col h-full">
+<body class="simple-flow text-slate-600 antialiased bg-slate-50 h-full min-h-screen overflow-hidden">
+<div id="app" class="flex flex-col h-full min-h-screen">
 
     <!-- Loading Curtain -->
     <div id="curtain" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm transition-opacity duration-500">
@@ -146,8 +284,8 @@
     </div>
 
     <!-- CUSTOMER-FACING SIMPLE UI -->
-    <div id="customer-shell" class="customer-shell h-full w-full">
-        <div class="flex h-full flex-col md:flex-row overflow-hidden">
+    <div id="customer-shell" class="customer-shell h-full min-h-screen w-full">
+        <div class="flex h-full min-h-screen flex-col md:flex-row overflow-hidden">
 
             <!-- LEFT: upload/settings/quote -->
             <aside class="w-full md:w-[400px] bg-white border-r border-slate-200 flex flex-col z-30 shadow-xl md:shadow-slate-200/50 overflow-y-auto h-full relative">
@@ -198,6 +336,7 @@
                             id="customer-file-input"
                             class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             accept=".stl,.obj,.3mf"
+                            multiple
                             >
                             <div class="pointer-events-none flex flex-col items-center transition-transform duration-300 group-hover:-translate-y-1">
                                 <div class="w-14 h-14 bg-white text-indigo-500 shadow-sm border border-slate-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-indigo-600 group-hover:text-white group-hover:shadow-indigo-200 transition-all duration-300">
@@ -230,14 +369,15 @@
                                         <option value="hex">Hexagon (Strong)</option>
                                         <option value="grid">Grid (Standard)</option>
                                         <option value="gyroid">Gyroid (Isotropic)</option>
-                                        <option value="lines">Lines (Fast)</option>
-                                        <option value="trihex">Tri-Hex</option>
+                                        <option value="linear">Lines (Fast)</option>
+                                        <option value="triangle">Triangles</option>
+                                        <option value="cubic">Cubic</option>
                                     </select>
-                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 group-hover:text-indigo-600 transition-colors">
-                                        <i class="fa-solid fa-chevron-down text-xs"></i>
-                                    </div>
-                                </div>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 group-hover:text-indigo-600 transition-colors">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
+                        </div>
+                    </div>
 
                             <!-- Infill Density -->
                             <div class="flex-col p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -248,14 +388,27 @@
                                 <input id="customer-infill-amount"
                                        type="range"
                                        min="0"
-                                       max="30"
+                                       max="100"
                                        step="1"
                                        value="15"
-                                       class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-full">
+                                       class="modern-range">
                                 <div class="flex justify-between text-[10px] text-slate-400 font-medium mt-1">
                                     <span>Hollow</span>
-                                    <span>Solid (30%)</span>
+                                    <span>Solid (100%)</span>
                                 </div>
+                            </div>
+
+                            <!-- Support Toggle -->
+                            <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                <div class="flex-1 flex-col pr-3">
+                                    <p class="text-xs font-semibold text-slate-600">Support</p>
+                                    <p class="text-[11px] text-slate-400 mt-1">Generate supports for overhangs</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer select-none">
+                                    <input id="customer-support-toggle" type="checkbox" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-indigo-500 transition-all duration-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                                    <span class="sr-only">Enable support generation</span>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -321,7 +474,7 @@
             </aside>
 
             <!-- RIGHT: 3D viewer -->
-            <main class="flex-1 relative bg-slate-100 flex flex-col h-[50vh] md:h-full overflow-hidden">
+            <main class="flex-1 relative bg-slate-100 flex flex-col h-full min-h-screen overflow-hidden">
                 <!-- Enhanced hint bar -->
                 <div class="absolute top-6 left-6 right-6 z-10 flex justify-end pointer-events-none">
                     <div class="pointer-events-auto px-4 py-2 bg-white/90 backdrop-blur-md rounded-full shadow-sm border border-slate-200/60 text-xs font-medium text-slate-500 flex items-center gap-3 transition-opacity hover:opacity-100 opacity-70">
@@ -337,8 +490,39 @@
 
                 <!-- Viewer container -->
                 <div id="customer-viewer" class="w-full h-full relative bg-[#f0f2f5]">
+                    <!-- Dedicated Kiri host to prevent fullscreen spillover -->
+                    <div id="kiri-view-window" class="absolute inset-0"></div>
                     <!-- Enhanced Gradient Overlay for depth -->
                     <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-slate-50 to-slate-200 pointer-events-none"></div>
+
+                    <!-- Slice preview control -->
+                    <div id="slice-preview-panel"
+                         class="items-center absolute top-20 inset-y-8 right-6 z-20 hidden md:flex flex-col gap-3 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-lg shadow-indigo-100 px-2 py-3 pointer-events-auto transition-all">
+                        <div class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                            <i class="fa-solid fa-layer-group text-indigo-500"></i>
+                            <span>Preview</span>
+                        </div>
+                        <div class="flex-col flex items-stretch gap-3">
+                            <div class="flex flex-col items-center text-[11px] text-slate-500 gap-1 pt-1">
+                                <span class="text-sm font-bold text-slate-800" id="slice-layer-label">-- / --</span>
+                                <span class="px-2 py-0.5 bg-slate-100 rounded-full border border-slate-200 text-[10px] font-semibold uppercase tracking-wide">Layer</span>
+                            </div>
+                            <div class="flex-1 flex items-center justify-center px-2 h-full">
+                                <input id="slice-layer-slider"
+                                       class="slice-scrubber bg-transparent"
+                                       type="range"
+                                       min="0"
+                                       max="0"
+                                       step="1"
+                                       value="0"
+                                       disabled
+                                >
+                            </div>
+                        </div>
+                        <div id="slice-preview-hint" class="text-[11px] text-slate-400 leading-snug">
+                            Slice to view.
+                        </div>
+                    </div>
 
                     <div id="viewer-placeholder"
                          class="absolute inset-0 flex flex-col items-center justify-center text-slate-300 pointer-events-none z-0">
@@ -347,6 +531,34 @@
                         </div>
                         <h3 class="text-xl font-semibold text-slate-400">3D Viewer Ready</h3>
                         <p class="text-sm text-slate-400 mt-2">Upload a model to see the magic</p>
+                    </div>
+
+                    <!-- Undo + Interaction panel (repositioned) -->
+                    <div id="viewer-interact"
+                         class="absolute left-6 bottom-6 z-20 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-lg shadow-indigo-100 px-3 py-2 pointer-events-auto transition-all">
+                        <button id="viewer-undo"
+                                class="text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg px-3 py-1.5 transition disabled:opacity-60 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Undo
+                        </button>
+                        <div class="flex items-center gap-2 text-[10px] text-slate-500">
+                            <i class="fa-solid fa-hand text-indigo-500"></i>
+                            <span>Interaction locked</span>
+                        </div>
+                    </div>
+
+                    <!-- Objects list panel (top-left) -->
+                    <div id="plate-object-panel"
+                         class="absolute left-6 top-6 z-20 hidden md:flex flex-col gap-2 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-lg shadow-indigo-100 px-4 py-3 pointer-events-auto transition-all max-w-xs w-64">
+                        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-box text-indigo-500"></i>
+                                <span>Objects on Plate</span>
+                            </span>
+                            <span id="plate-object-count" class="text-[10px] text-slate-400 font-medium">0</span>
+                        </div>
+                        <ul id="plate-object-list" class="text-[11px] text-slate-500 space-y-1 max-h-36 overflow-auto pr-1 custom-scroll">
+                            <li class="text-slate-400">No objects loaded</li>
+                        </ul>
                     </div>
                 </div>
             </main>
@@ -1093,6 +1305,143 @@
 
 <!-- Simple UI controller (real logic from v1) -->
 <script type="module" src="simple-ui.js"></script>
+
+<!-- Slice preview slider controls inlined for easier Tailwind tweaking -->
+<script>
+(() => {
+    let previewReady = false;
+    let domCache;
+    const getDom = () => {
+        if (domCache) return domCache;
+        domCache = {
+            panel: document.getElementById('slice-preview-panel'),
+            slider: document.getElementById('slice-layer-slider'),
+            label: document.getElementById('slice-layer-label'),
+            hint: document.getElementById('slice-preview-hint')
+        };
+        return domCache;
+    };
+
+    const showPanel = dom => {
+        if (!dom.panel) return;
+        dom.panel.classList.remove('hidden');
+        dom.panel.classList.add('flex');
+        if (dom.slider) {
+            dom.panel.classList.toggle('opacity-60', dom.slider.disabled);
+        }
+    };
+
+    const updateLabel = (dom, layer, max) => {
+        if (!dom.label) return;
+        if (layer < 0 || max <= 0) {
+            dom.label.textContent = '-- / --';
+            return;
+        }
+        const safeLayer = Math.max(0, Math.min(layer, max));
+        dom.label.textContent = `${safeLayer} / ${max}`;
+    };
+
+    const setHint = (dom, message) => {
+        if (dom.hint && typeof message === 'string') {
+            dom.hint.textContent = message;
+        }
+    };
+
+    const disableSlider = (dom, hint) => {
+        previewReady = false;
+        if (dom.slider) {
+            dom.slider.disabled = true;
+            dom.slider.value = 0;
+            dom.slider.max = 0;
+        }
+        showPanel(dom);
+        updateLabel(dom, -1, -1);
+        setHint(dom, hint || 'Slice to view.');
+    };
+
+    const resetPreview = () => {
+        const dom = getDom();
+        disableSlider(dom, 'Slice to view.');
+    };
+
+    const syncFromApi = (api, dom, hint) => {
+        if (!previewReady) {
+            disableSlider(dom, 'Slice to view.');
+            return;
+        }
+        if (!dom.slider) return;
+        const max = Math.max(0, api?.var?.layer_max || 0);
+        const activeLayer = Math.min(max, Math.max(0, api?.var?.layer_hi || 0));
+        dom.slider.max = max;
+        dom.slider.value = activeLayer;
+        dom.slider.disabled = false;
+        showPanel(dom);
+        updateLabel(dom, activeLayer, max);
+        dom.panel?.classList.remove('opacity-60');
+        setHint(dom, hint || 'Drag to scrub.');
+    };
+
+    const attachSlider = api => {
+        const dom = getDom();
+        if (!dom.slider) {
+            return;
+        }
+
+        dom.slider.addEventListener('input', () => {
+            if (dom.slider.disabled) {
+                return;
+            }
+            const target = parseInt(dom.slider.value, 10);
+            if (!Number.isNaN(target)) {
+                api.show.layer(target, 0);
+            }
+        });
+
+        disableSlider(dom, 'Upload & slice to scrub.');
+        api.event.on('slice.begin', () => disableSlider(dom, 'Slicing...'));
+        api.event.on('slice.error', () => disableSlider(dom, 'Slice failed. Check settings.'));
+        api.event.on('slice.end', () => {
+            previewReady = true;
+            syncFromApi(api, dom, 'Preview ready. Scrub.');
+        });
+        api.event.on('preview.end', () => {
+            previewReady = true;
+            syncFromApi(api, dom, 'Preview ready. Scrub.');
+        });
+        api.event.on('slider.label', () => {
+            if (previewReady) {
+                syncFromApi(api, dom);
+            } else {
+                disableSlider(dom, 'Slice to view.');
+            }
+        });
+    };
+
+    const waitForKiri = (retry = 0) => {
+        if (self.kiri_api) {
+            attachSlider(self.kiri_api);
+            return;
+        }
+        if (retry > 200) {
+            console.warn('kiri_api not available yet for slice slider');
+            return;
+        }
+        setTimeout(() => waitForKiri(retry + 1), 50);
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const dom = getDom();
+        disableSlider(dom, 'Slice to view.');
+        waitForKiri();
+    });
+
+    window.addEventListener('slice-preview-reset', resetPreview);
+    window.addEventListener('kiri-platform-resize', () => {
+        const dom = getDom();
+        disableSlider(dom, 'Slice to view.');
+    });
+})();
+</script>
 
 <!-- Tiny helper: keep infill label in sync (doesn't touch slicing logic) -->
 <script>

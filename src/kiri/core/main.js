@@ -465,6 +465,8 @@ function loadImage(image, opt = {}) {
         api.show.progress(0);
         const widget = newWidget().loadVertices(vertices);
         widget.meta.file = opt.file;
+        widget.meta.auto_orient = true;
+        widget.meta.force_layout = true;
         platform.add(widget);
     });
 }

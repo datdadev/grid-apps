@@ -17,6 +17,7 @@ const V0 = new THREE.Vector3(0,0,0);
 let setbounds = undefined;
 let grouping = false;
 let topZ = 0;
+let pendingOrient = new Set();
 
 function current() {
     return api.conf.get();
@@ -351,6 +352,8 @@ function platformLoad(url, onload) {
             vertices = js2o(vertices).toFloat32();
             let widget = newWidget().loadVertices(vertices);
             widget.meta.url = url;
+            widget.meta.auto_orient = true;
+            widget.meta.force_layout = true;
             platform.add(widget);
             if (onload) onload(vertices, widget);
         });
@@ -362,6 +365,8 @@ function platformLoadSTL(url, onload, formdata, credentials, headers) {
         if (vertices) {
             let widget = newWidget().loadVertices(vertices);
             widget.meta.file = filename;
+            widget.meta.auto_orient = true;
+            widget.meta.force_layout = true;
             platform.add(widget);
             if (onload) {
                 onload(vertices, widget);
@@ -377,10 +382,12 @@ function platformLoadURL(url, options = {}) {
         for (let object of objects) {
             let widget = newWidget(undefined, options.group).loadVertices(object.mesh);
             widget.meta.file = object.file;
+            widget.meta.auto_orient = true;
+            widget.meta.force_layout = true;
             platform.add(widget);
             widgets.push(widget);
         }
-        platform.group_done();
+        platform.group_done(false, { forceLayout: true });
         api.event.emit("load.url", {
             url,
             options,
@@ -396,11 +403,123 @@ function platformGroup() {
 }
 
 // called after all new widgets are loaded to update group positions
-function platformGroupDone(skipLayout) {
+function platformGroupDone(skipLayout, opt = {}) {
     grouping = false;
     Widget.Groups.loadDone();
-    if (api.feature.drop_layout && !skipLayout) {
-        platform.layout();
+    applyPendingOrientations();
+    if ((api.feature.drop_layout || opt.forceLayout) && !skipLayout) {
+        platform.layout(opt.forceLayout ? { force: true } : undefined);
+    }
+}
+
+function autoOrientForSupports(widget) {
+    if (self.kiri_simple_ui) {
+        return;
+    }
+    if (!widget || !widget.meta?.auto_orient) {
+        return;
+    }
+    delete widget.meta.auto_orient;
+
+    const MODE = get_mode();
+    if (![MODES.FDM, MODES.SLA].includes(MODE)) {
+        return;
+    }
+
+    pendingOrient.add(widget);
+}
+
+function findBestSupportNormal(widgets) {
+    const tri = new THREE.Triangle();
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const c = new THREE.Vector3();
+    const normal = new THREE.Vector3();
+    const normals = new Map();
+
+    const addFace = (positions, i1, i2, i3) => {
+        a.fromArray(positions, i1 * 3);
+        b.fromArray(positions, i2 * 3);
+        c.fromArray(positions, i3 * 3);
+        tri.set(a, b, c);
+        const area = tri.getArea();
+        if (!area) {
+            return;
+        }
+        tri.getNormal(normal);
+        const key = `${normal.x.toFixed(2)},${normal.y.toFixed(2)},${normal.z.toFixed(2)}`;
+        let rec = normals.get(key);
+        if (!rec) {
+            rec = { area: 0, normal: normal.clone() };
+            normals.set(key, rec);
+        }
+        rec.area += area;
+    };
+
+    for (let widget of widgets) {
+        const geometry = widget.mesh?.geometry;
+        const posAttr = geometry?.attributes?.position;
+        if (!posAttr?.array?.length) {
+            continue;
+        }
+        const positions = posAttr.array;
+        const indices = geometry.index ? geometry.index.array : null;
+        if (indices && indices.length) {
+            for (let i = 0; i < indices.length; i += 3) {
+                addFace(positions, indices[i], indices[i + 1], indices[i + 2]);
+            }
+        } else {
+            for (let i = 0; i < positions.length; i += 9) {
+                const base = i / 3;
+                addFace(positions, base, base + 1, base + 2);
+            }
+        }
+    }
+
+    if (!normals.size) {
+        return;
+    }
+
+    return [...normals.values()].reduce((acc, rec) => rec.area > acc.area ? rec : acc).normal.clone().normalize();
+}
+
+function applyPendingOrientations() {
+    if (!pendingOrient.size) {
+        return;
+    }
+    try {
+        const MODE = get_mode();
+        if (![MODES.FDM, MODES.SLA].includes(MODE)) {
+            pendingOrient.clear();
+            return;
+        }
+
+        const grouped = new Map();
+        for (let widget of pendingOrient) {
+            const gid = widget.group?.id || widget.id;
+            let list = grouped.get(gid);
+            if (!list) {
+                list = [];
+                grouped.set(gid, list);
+            }
+            list.push(widget);
+        }
+        pendingOrient.clear();
+
+        const target = new THREE.Vector3(0, 0, -1);
+        for (let widgets of grouped.values()) {
+            const bestNormal = findBestSupportNormal(widgets);
+            if (!bestNormal) {
+                continue;
+            }
+            const quat = new THREE.Quaternion().setFromUnitVectors(bestNormal, target);
+            if (Number.isFinite(quat.x) && Number.isFinite(quat.y) && Number.isFinite(quat.z) && Number.isFinite(quat.w)) {
+                widgets[0].rotate(quat);
+            }
+        }
+    } catch (e) {
+        console.debug('auto orient failure', e);
+        pendingOrient.clear();
     }
 }
 
@@ -408,12 +527,17 @@ let deferred = [];
 let deferTimeout;
 
 function platformAdd(widget, shift, nolayout, defer) {
+    autoOrientForSupports(widget);
+    const forceLayout = widget.meta?.force_layout;
+    if (forceLayout !== undefined) {
+        delete widget.meta.force_layout;
+    }
     api.widgets.add(widget);
     space.world.add(widget.mesh);
     widget.anno = widget.anno || {};
     widget.anno.extruder = widget.anno.extruder || 0;
     if (defer) {
-        deferred.push({widget, shift, nolayout});
+        deferred.push({widget, shift, nolayout, forceLayout});
         clearTimeout(deferTimeout);
         deferTimeout = setTimeout(platformAddDeferred, 150);
     } else {
@@ -426,7 +550,7 @@ function platformAdd(widget, shift, nolayout, defer) {
             return;
         }
         if (!grouping) {
-            platformGroupDone(nolayout);
+            platformGroupDone(nolayout, { forceLayout });
             if (!current().controller.autoLayout) {
                 positionNewWidget(widget);
             }
@@ -436,16 +560,18 @@ function platformAdd(widget, shift, nolayout, defer) {
 
 function platformAddDeferred() {
     let skiplayout = false;
+    let forceLayout = false;
     for (let rec of deferred) {
-        let { widget, shift, nolayout } = rec;
+        let { widget, shift, nolayout, forceLayout: recForce } = rec;
         skiplayout |= nolayout;
+        forceLayout = forceLayout || !!recForce;
         // platform.select(widget, shift);
         if (!nolayout && !current().controller.autoLayout) {
             positionNewWidget(widget);
         }
     }
     if (!grouping) {
-        platformGroupDone(skiplayout);
+        platformGroupDone(skiplayout, { forceLayout });
     }
     api.event.emit('widget.add', deferred.map(r => r.widget));
     platform.update_bounds();
@@ -529,14 +655,12 @@ function platformDelete(widget, defer) {
 function platformDeletePost() {
     api.view.update_slider_max();
     platform.update_bounds();
-    if (get_mode() !== MODES.FDM) {
-        platform.layout();
+    const shouldLayout = get_mode() !== MODES.FDM || api.feature.drop_layout;
+    if (shouldLayout) {
+        platform.layout({ force: true });
     }
     space.update();
     platform.update_selected();
-    if (api.feature.drop_layout) {
-        platform.layout();
-    }
     api.space.auto_save();
     platformChanged();
 }
@@ -627,16 +751,18 @@ function platformSelectAll() {
     });
 }
 
-function platformLayout() {
+function platformLayout(options = {}) {
+    const opt = options instanceof Event ? {} :
+        typeof options === 'boolean' ? { force: options } :
+        options || {};
+    const force = !!opt.force;
     const MODE = get_mode();
     const settings = current();
     const { process, device, controller } = settings;
     const { ui } = api;
 
-    const auto = ui.autoLayout.checked,
-        isBelt = device.bedBelt,
-        isArrange = api.view.is_arrange(),
-        layout = isArrange && auto;
+    const auto = force ? true : ((ui && ui.autoLayout) ? ui.autoLayout.checked : true),
+        isBelt = device.bedBelt;
 
     let gap = controller.spaceLayout;
 
@@ -661,14 +787,8 @@ function platformLayout() {
     api.view.hide_slices();
     api.space.auto_save();
 
-    if (!isArrange) {
-        // skip auto-layout when not in arrange mode
-        api.event.emit('platform.layout');
-        return space.update();
-    }
-
-    // do not layout when switching back from slice view
-    if (!auto || (!space && !layout)) {
+    const layout = force || (api.view.is_arrange() && auto);
+    if (!layout) {
         api.event.emit('platform.layout');
         return space.update();
     }
@@ -733,6 +853,8 @@ function platformLayout() {
 function platformLoadWidget(group, vertices, filename) {
     const widget = newWidget(undefined, group).loadVertices(vertices.toFloat32(), true);
     widget.meta.file = filename;
+    widget.meta.auto_orient = true;
+    widget.meta.force_layout = true;
     if (filename) widget.saveToCatalog(filename);
     platformAdd(widget);
     return widget;
@@ -762,7 +884,7 @@ function platformLoadFiles(files, group) {
             const data = e.target.result;
             function load_dec() {
                 if (--loading === 0) {
-                    platform.group_done(isgcode);
+                    platform.group_done(isgcode, { forceLayout: true });
                 }
             }
             if (israw) {

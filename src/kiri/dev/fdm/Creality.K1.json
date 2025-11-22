@@ -3,13 +3,13 @@
     "internal": 0,
     "imageURL": "",
     "bedHeight": 2.5,
-    "bedWidth": 220,
-    "bedDepth": 220,
+    "bedWidth": 300,
+    "bedDepth": 300,
     "bedRound": false,
     "bedBelt": false,
     "deviceZMax": 0,
     "gcodeTime": 1,
-    "maxHeight": 250,
+    "maxHeight": 300,
     "originCenter": false,
     "gcodeFan": [
         "M106 S{fan_speed}"

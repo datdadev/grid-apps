@@ -79,7 +79,10 @@ window.addEventListener('message', msg => {
             case 'stl':
                 if (!bin.buffer) bin = new Float32Array(bin).buffer;
                 new load.STL().parse(bin, vertices => {
-                    platform.add(widget = newWidget().loadVertices(vertices));
+                    widget = newWidget().loadVertices(vertices);
+                    widget.meta.auto_orient = true;
+                    widget.meta.force_layout = true;
+                    platform.add(widget);
                     send({event: "parsed", data: [ widget.id ]});
                 });
                 break;
@@ -93,7 +96,10 @@ window.addEventListener('message', msg => {
                 let wid = [];
                 for (let svg of load.SVG.parse(bin)) {
                     if (!(svg && svg.length)) continue;
-                    platform.add(widget = newWidget().loadVertices(svg.toFloat32()));
+                    widget = newWidget().loadVertices(svg.toFloat32());
+                    widget.meta.auto_orient = true;
+                    widget.meta.force_layout = true;
+                    platform.add(widget);
                     wid.push(widget.id);
                 }
                 send({event: "parsed", data: wid});
