@@ -23,6 +23,24 @@ const uiState = {
     fileName: '',
     hasSliced: false
 };
+let selectedWidgetIds = [];
+let rotatePanel = null;
+
+function setRotatePanelEnabled(enabled) {
+    if (!rotatePanel) {
+        return;
+    }
+    rotatePanel.classList.toggle('opacity-40', !enabled);
+    rotatePanel.classList.toggle('pointer-events-none', !enabled);
+    rotatePanel.classList.toggle('select-none', !enabled);
+    rotatePanel.classList.toggle('opacity-100', enabled);
+}
+
+function updateSelection(newIds) {
+    const unique = Array.from(new Set((newIds || []).filter(Boolean)));
+    selectedWidgetIds = unique;
+    setRotatePanelEnabled(unique.length > 0);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     waitForKiri();
@@ -140,6 +158,7 @@ async function initSimpleUI(api) {
     setupUndo(api, dom);
     preventViewerSelection(api);
     lockObjectInteraction(api);
+    setupRotatePanel(api, dom);
     renderObjectList(api, dom);
     resetStats(dom, 'Upload an STL to begin.');
 
@@ -796,6 +815,70 @@ function lockObjectInteraction(api) {
     }
 }
 
+function setupRotatePanel(api, dom) {
+    const host = dom.viewerHost || dom.viewerWindow || dom.shell;
+    if (!host) {
+        return;
+    }
+    if (document.getElementById('customer-rotate-panel')) {
+        return;
+    }
+    const ROTATE_STEP = Math.PI / 2;
+    const panel = document.createElement('div');
+    panel.id = 'customer-rotate-panel';
+    panel.className = 'absolute bottom-[30px] right-[170px] z-10 bg-white/95 text-slate-900 px-4 py-3 rounded-xl shadow-2xl text-xs leading-5 w-52 text-center flex flex-col items-center gap-2 opacity-40 pointer-events-none select-none';
+    panel.innerHTML = `
+        <div class="w-full flex flex-col items-center gap-2">
+            <div class="flex items-center justify-center gap-2" style="letter-spacing:0.1em;font-size:11px;">
+                <i class="text-[12px]"></i>
+                <span style="font-size:11px;">Rotate model</span>
+            </div>
+            <div class="rotate-btns grid grid-cols-3 gap-2 w-full">
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="x" data-dir="-1">X -90°</button>
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="x" data-dir="1">X +90°</button>
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="y" data-dir="-1">Y -90°</button>
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="y" data-dir="1">Y +90°</button>
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="z" data-dir="-1">Z -90°</button>
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="z" data-dir="1">Z +90°</button>
+            </div>
+        </div>
+    `;
+    const rotate = (axis, dir) => {
+        const widgets = getSelectedWidgets(api);
+        if (!widgets.length) {
+            return;
+        }
+        const angle = dir * ROTATE_STEP;
+        const coords = { x: 0, y: 0, z: 0 };
+        coords[axis] = angle;
+        widgets.forEach(widget => {
+            if (typeof widget.rotate === 'function') {
+                widget.rotate(coords.x, coords.y, coords.z);
+            }
+        });
+        if (typeof api.platform?.update_bounds === 'function') {
+            api.platform.update_bounds();
+        }
+        if (typeof api.space?.update === 'function') {
+            api.space.update();
+        }
+        api.space?.auto_save?.();
+    };
+    panel.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            rotate(btn.dataset.axis, parseInt(btn.dataset.dir, 10) || 0);
+        });
+    });
+    host.appendChild(panel);
+    rotatePanel = panel;
+    setRotatePanelEnabled(false);
+}
+
+function getSelectedWidgets(api) {
+    const widgets = api.widgets?.all ? api.widgets.all() : [];
+    return widgets.filter(w => selectedWidgetIds.includes(w.id));
+}
+
 function renderObjectList(api, dom) {
     if (!dom.objectList) {
         return;
@@ -804,6 +887,9 @@ function renderObjectList(api, dom) {
     const countLabel = dom.objectCount;
     list.innerHTML = '';
     const widgets = api.widgets?.all ? api.widgets.all() : [];
+    const filteredSelection = selectedWidgetIds.filter(id => widgets.some(w => w.id === id));
+    selectedWidgetIds = filteredSelection;
+    setRotatePanelEnabled(selectedWidgetIds.length > 0);
     if (countLabel) {
         countLabel.textContent = widgets.length.toString();
     }
@@ -817,7 +903,11 @@ function renderObjectList(api, dom) {
     widgets.forEach((w, idx) => {
         const name = (w?.meta?.file || `Object ${idx + 1}`).toString();
         const li = document.createElement('li');
-        li.className = 'flex items-center justify-between gap-2 text-slate-600';
+        li.className = 'flex items-center justify-between gap-2 text-slate-600 cursor-pointer rounded-md border border-transparent transition-colors duration-150 px-3 py-1';
+        const isSelected = selectedWidgetIds.includes(w.id);
+        li.classList.toggle('bg-slate-100', isSelected);
+        li.classList.toggle('border-slate-300', isSelected);
+        li.classList.toggle('text-slate-900', isSelected);
         const dot = document.createElement('span');
         dot.className = 'w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block';
         const nameSpan = document.createElement('span');
@@ -839,6 +929,24 @@ function renderObjectList(api, dom) {
             } catch (e) {
                 console.debug('failed to delete widget', e);
             }
+        });
+        li.addEventListener('click', event => {
+            event.stopPropagation();
+            const alreadySelected = selectedWidgetIds.includes(w.id);
+            const multiAdd = event.ctrlKey || event.metaKey || event.shiftKey;
+            let nextSelection = [];
+            if (multiAdd) {
+                nextSelection = [...selectedWidgetIds];
+                if (alreadySelected) {
+                    nextSelection = nextSelection.filter(id => id !== w.id);
+                } else {
+                    nextSelection.push(w.id);
+                }
+            } else {
+                nextSelection = alreadySelected && selectedWidgetIds.length === 1 ? [] : [w.id];
+            }
+            updateSelection(nextSelection, nextSelection.includes(w.id) ? w.id : nextSelection[0] || null);
+            renderObjectList(api, dom);
         });
         li.appendChild(nameSpan);
         li.appendChild(removeBtn);
