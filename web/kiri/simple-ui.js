@@ -40,6 +40,15 @@ function updateSelection(newIds) {
     const unique = Array.from(new Set((newIds || []).filter(Boolean)));
     selectedWidgetIds = unique;
     setRotatePanelEnabled(unique.length > 0);
+    const layFlatBtn = document.getElementById('plate-auto-orient');
+    if (layFlatBtn) {
+        const enable = unique.length === 1;
+        layFlatBtn.classList.toggle('opacity-40', !enable);
+        layFlatBtn.classList.toggle('pointer-events-none', !enable);
+        layFlatBtn.classList.toggle('select-none', !enable);
+        layFlatBtn.classList.toggle('opacity-100', enable);
+        layFlatBtn.disabled = !enable;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -89,6 +98,7 @@ async function initSimpleUI(api) {
         viewerPlaceholder: document.getElementById('viewer-placeholder'),
         objectList: document.getElementById('plate-object-list'),
         objectCount: document.getElementById('plate-object-count'),
+        autoOrientBtn: document.getElementById('plate-auto-orient'),
         sliceBtn: document.getElementById('customer-slice-btn'),
         orderBtn: document.getElementById('customer-order-btn'),
         orderForm: document.getElementById('customer-order-form'),
@@ -156,11 +166,21 @@ async function initSimpleUI(api) {
     setupSlicing(api, dom);
     setupOrderForm(dom);
     setupUndo(api, dom);
-    preventViewerSelection(api);
-    lockObjectInteraction(api);
     setupRotatePanel(api, dom);
+    setupAutoLayFlat(api, dom);
     renderObjectList(api, dom);
     resetStats(dom, 'Upload an STL to begin.');
+    try {
+        const syncSelection = () => syncSelectionFromPlatform(api, dom);
+        const refreshList = () => renderObjectList(api, dom);
+        api.event.on('widget.select', syncSelection);
+        api.event.on('widget.deselect', syncSelection);
+        api.event.on('widget.delete', syncSelection);
+        api.event.on('widget.add', refreshList);
+        syncSelection();
+    } catch (e) {
+        console.debug('selection sync wiring failed', e);
+    }
 
     api.event.on('device.selected', () => {
         ensureBed300(api);
@@ -342,7 +362,7 @@ function setupUploader(api, dom) {
         }
         resetStats(dom, 'Click “Slice & Price” to continue.');
         updateSliceAvailability(api, dom);
-        autoArrangeAndOrient(api, dom);
+        autoArrangeAndOrient(api, dom, 0, widgets);
         uiState.hasSliced = false;
         updateUndoState(api, dom);
         renderObjectList(api, dom);
@@ -369,13 +389,13 @@ function setupUploader(api, dom) {
     updateSliceAvailability(api, dom);
 }
 
-function autoArrangeAndOrient(api, dom, attempt = 0) {
+function autoArrangeAndOrient(api, dom, attempt = 0, targets) {
     try {
         api.view?.set_arrange?.();
     } catch (e) {
         console.debug('auto arrange failed', e);
     }
-    const oriented = autoOrientWidgets(api);
+    const oriented = autoOrientWidgets(api, targets);
     try {
         api.platform?.layout?.({ force: true });
     } catch (e) {
@@ -383,7 +403,7 @@ function autoArrangeAndOrient(api, dom, attempt = 0) {
     }
     renderObjectList(api, dom);
     if (!oriented && attempt < 3) {
-        setTimeout(() => autoArrangeAndOrient(api, dom, attempt + 1), 200);
+        setTimeout(() => autoArrangeAndOrient(api, dom, attempt + 1, targets), 200);
     }
 }
 
@@ -669,10 +689,14 @@ function ensureDeviceK1(api) {
     }
 }
 
-function autoOrientWidgets(api) {
+function autoOrientWidgets(api, targets) {
     let allOriented = true;
     try {
-        const widgets = api.widgets?.all ? api.widgets.all() : [];
+        const widgets = targets && targets.length
+            ? targets
+            : api.widgets?.all
+                ? api.widgets.all()
+                : [];
         widgets.forEach(widget => {
             const oriented = autoOrientWidget(widget);
             if (!oriented) {
@@ -697,14 +721,12 @@ function autoOrientWidget(widget) {
         console.debug('unrotate failed', e);
     }
     const geom = widget.mesh.geometry;
-    // lay the largest face downward to minimize supports
-    const normals = findDominantNormals(geom, THREE);
-    const best = normals[0];
-    if (!best?.normal) {
+    const bestNormal = findDominantNormal(geom, THREE);
+    if (!bestNormal) {
         return false;
     }
     const targetDown = new THREE.Vector3(0, 0, -1);
-    const quat = new THREE.Quaternion().setFromUnitVectors(best.normal.clone().normalize(), targetDown);
+    const quat = new THREE.Quaternion().setFromUnitVectors(bestNormal, targetDown);
     const delta = Math.abs(quat.x) + Math.abs(quat.y) + Math.abs(quat.z);
     if (delta > 1e-6 && Number.isFinite(delta)) {
         widget.rotate(quat);
@@ -713,12 +735,13 @@ function autoOrientWidget(widget) {
     return false;
 }
 
-// pick the largest face normal by aggregated area to orient flat faces downward
-function findDominantNormals(geom, THREE) {
+function findDominantNormal(geom, THREE) {
     const pos = geom.attributes?.position;
     if (!pos?.count) {
-        return [];
+        return null;
     }
+    const index = geom.index ? geom.index.array : null;
+    const triCount = index?.length ? index.length : pos.count;
     const buckets = new Map();
     const v1 = new THREE.Vector3();
     const v2 = new THREE.Vector3();
@@ -726,15 +749,24 @@ function findDominantNormals(geom, THREE) {
     const edge1 = new THREE.Vector3();
     const edge2 = new THREE.Vector3();
     const normal = new THREE.Vector3();
-    for (let i = 0; i < pos.count; i += 3) {
-        v1.fromArray(pos.array, i * 3);
-        v2.fromArray(pos.array, (i + 1) * 3);
-        v3.fromArray(pos.array, (i + 2) * 3);
+    const readVector = (vec, vertexIndex) => {
+        const offset = vertexIndex * 3;
+        return vec.fromArray(pos.array, offset);
+    };
+    for (let i = 0; i < triCount; i += 3) {
+        const i1 = index ? index[i] : i;
+        const i2 = index ? index[i + 1] : i + 1;
+        const i3 = index ? index[i + 2] : i + 2;
+        readVector(v1, i1);
+        readVector(v2, i2);
+        readVector(v3, i3);
         edge1.subVectors(v2, v1);
         edge2.subVectors(v3, v1);
         normal.crossVectors(edge1, edge2);
         const area = normal.length();
-        if (!isFinite(area) || area < 1e-6) continue;
+        if (!isFinite(area) || area < 1e-6) {
+            continue;
+        }
         normal.normalize();
         const key = `${Math.round(normal.x * 10) / 10},${Math.round(normal.y * 10) / 10},${Math.round(normal.z * 10) / 10}`;
         let bucket = buckets.get(key);
@@ -745,9 +777,9 @@ function findDominantNormals(geom, THREE) {
         bucket.area += area;
         bucket.normal.addScaledVector(normal, area);
     }
-    return Array.from(buckets.values())
-        .sort((a, b) => b.area - a.area)
-        .map(({ area, normal }) => ({ area, normal: normal.normalize() }));
+    const best = Array.from(buckets.values())
+        .sort((a, b) => b.area - a.area)[0];
+    return best?.normal?.normalize();
 }
 
 async function loadCustomProfile(api) {
@@ -831,15 +863,19 @@ function setupRotatePanel(api, dom) {
         <div class="w-full flex flex-col items-center gap-2">
             <div class="flex items-center justify-center gap-2" style="letter-spacing:0.1em;font-size:11px;">
                 <i class="text-[12px]"></i>
-                <span style="font-size:11px;">Rotate model</span>
+                
+                <div class="flex items-center gap-2 text-[10px] text-slate-500">
+                            <i class="fa-solid fa-repeat text-indigo-500"></i>
+                            <span>Rotate model</span>
+                        </div>
             </div>
             <div class="rotate-btns grid grid-cols-3 gap-2 w-full">
-                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="x" data-dir="-1">X -90°</button>
                 <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="x" data-dir="1">X +90°</button>
-                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="y" data-dir="-1">Y -90°</button>
                 <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="y" data-dir="1">Y +90°</button>
-                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="z" data-dir="-1">Z -90°</button>
                 <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="z" data-dir="1">Z +90°</button>
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="x" data-dir="-1">X -90°</button>
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="y" data-dir="-1">Y -90°</button>
+                <button class="bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 uppercase tracking-wide transition duration-150 ease-in-out text-center" style="font-size:10px;" type="button" data-axis="z" data-dir="-1">Z -90°</button>
             </div>
         </div>
     `;
@@ -874,9 +910,63 @@ function setupRotatePanel(api, dom) {
     setRotatePanelEnabled(false);
 }
 
+function setupAutoLayFlat(api, dom) {
+    const btn = dom.autoOrientBtn;
+    if (!btn) {
+        return;
+    }
+    btn.title = 'Choose a face to place on the bed';
+    btn.addEventListener('click', () => {
+        if (!api.widgets?.count || api.widgets.count() === 0) {
+            return;
+        }
+        if (!selectedWidgetIds.length) {
+            api.show?.alert?.('Select a model first, then click a face', 3);
+            return;
+        }
+        try {
+            api.event.emit('tool.mesh.lay-flat');
+        } catch (e) {
+            console.debug('lay flat tool failed', e);
+        }
+    });
+}
+
 function getSelectedWidgets(api) {
     const widgets = api.widgets?.all ? api.widgets.all() : [];
     return widgets.filter(w => selectedWidgetIds.includes(w.id));
+}
+
+function syncSelectionFromPlatform(api, dom) {
+    try {
+        const selected = api.selection?.widgets ? api.selection.widgets() : [];
+        updateSelection(selected.map(w => w.id));
+        if (dom) {
+            renderObjectList(api, dom);
+        }
+    } catch (e) {
+        console.debug('selection sync failed', e);
+    }
+}
+
+function applySelectionToPlatform(api, ids = []) {
+    try {
+        const platform = api.platform;
+        if (!platform?.select || !platform?.deselect) {
+            return;
+        }
+        const widgets = api.widgets?.all ? api.widgets.all() : [];
+        const next = widgets.filter(w => ids.includes(w.id));
+        platform.deselect();
+        if (!next.length) {
+            return;
+        }
+        next.forEach((widget, index) => {
+            platform.select(widget, index > 0);
+        });
+    } catch (e) {
+        console.debug('apply selection failed', e);
+    }
 }
 
 function renderObjectList(api, dom) {
@@ -945,8 +1035,7 @@ function renderObjectList(api, dom) {
             } else {
                 nextSelection = alreadySelected && selectedWidgetIds.length === 1 ? [] : [w.id];
             }
-            updateSelection(nextSelection, nextSelection.includes(w.id) ? w.id : nextSelection[0] || null);
-            renderObjectList(api, dom);
+            applySelectionToPlatform(api, nextSelection);
         });
         li.appendChild(nameSpan);
         li.appendChild(removeBtn);

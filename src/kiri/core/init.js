@@ -359,10 +359,13 @@ function keyHandler(evt) {
     for (let handler of api.feature.on_key2) {
         if (handler({key:evt})) return;
     }
-    if (evt.ctrlKey) {
-        switch (evt.key) {
+    if (evt.ctrlKey || evt.metaKey) {
+        switch (evt.key?.toLowerCase()) {
             case 'g': return api.group.merge();
             case 'u': return api.group.split();
+            case 'c': return copySelection();
+            case 'v': return pasteSelection();
+            default: break;
         }
     }
     switch (evt.charCode) {
@@ -415,24 +418,25 @@ function keyHandler(evt) {
         case cca('O'): // manual rotation
             rotateInputSelection();
             break;
-        case cca('r'): // recent files
-            api.modal.show('files');
-            break;
-        case cca('q'): // preferences
-            api.modal.show('prefs');
-            break;
-        case cca('l'): // device
-            settingsLoad();
-            break;
-        case cca('e'): // device
-            api.show.devices();
-            break;
-        case cca('o'): // tools
-            api.show.tools();
-            break;
-        case cca('c'): // local devices
-            api.show.local();
-            break;
+        // shortcuts that open modal dialogs are disabled in this build
+        // case cca('r'): // recent files
+        //     api.modal.show('files');
+        //     break;
+        // case cca('q'): // preferences
+        //     api.modal.show('prefs');
+        //     break;
+        // case cca('l'): // device
+        //     settingsLoad();
+        //     break;
+        // case cca('e'): // device
+        //     api.show.devices();
+        //     break;
+        // case cca('o'): // tools
+        //     api.show.tools();
+        //     break;
+        // case cca('c'): // local devices
+        //     api.show.local();
+        //     break;
         case cca('v'): // toggle single slice view mode
             if (api.view.get() === VIEWS.ARRANGE) {
                 api.space.set_focus(selection.widgets());
@@ -474,12 +478,58 @@ function keyHandler(evt) {
     return false;
 }
 
+let widgetClipboard = [];
+
 function duplicateSelection() {
     selection.duplicate();
 }
 
 function mirrorSelection() {
     selection.mirror();
+}
+
+function copySelection() {
+    if (!selection.count() || !api.view.is_arrange()) {
+        widgetClipboard = [];
+        return;
+    }
+    widgetClipboard = selection.widgets().map(widget => {
+        const geometry = widget.mesh.geometry.clone();
+        const meta = Object.clone(widget.meta || {});
+        const annotations = widget.annotations ? Object.clone(widget.annotations()) : undefined;
+        const bbox = widget.mesh.getBoundingBox()?.clone?.();
+        return { geometry, meta, annotations, bbox };
+    });
+}
+
+function pasteSelection() {
+    if (!widgetClipboard.length || !api.view.is_arrange()) {
+        return;
+    }
+    const created = [];
+    widgetClipboard.forEach((entry, index) => {
+        if (!entry?.geometry) {
+            return;
+        }
+        const geo = entry.geometry.clone ? entry.geometry.clone() : entry.geometry;
+        const widget = api.widgets.new().loadGeometry(geo);
+        widget.meta = Object.assign(widget.meta || {}, Object.clone(entry.meta || {}));
+        if (entry.annotations) {
+            widget.anno = Object.clone(entry.annotations);
+        }
+        const bbox = entry.bbox;
+        const width = bbox && bbox.max && bbox.min ? Math.max(5, (bbox.max.x - bbox.min.x) || 0) : 10;
+        widget.move((width + 2) * (index + 1), 0, 0);
+        api.platform.add(widget, true);
+        created.push(widget);
+    });
+    if (created.length) {
+        api.platform.deselect();
+        created.forEach((widget, idx) => {
+            api.platform.select(widget, idx > 0);
+        });
+        api.space?.auto_save?.();
+    }
 }
 
 function keys(o) {
