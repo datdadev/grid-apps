@@ -226,9 +226,60 @@ function tweenCam(pos) {
  * Utility Functions
  ******************************************************************* */
 
-function width() { return WIN.innerWidth }
+function viewTarget() {
+    return renderer?.domElement?.parentElement || container;
+}
 
-function height() { return WIN.innerHeight }
+function pointerShift() {
+    // allow manual correction in pixels via window.kiriPointerOffset = { x, y }
+    const offset = self?.kiriPointerOffset || self?.kiri_pointer_offset;
+    return {
+        x: Number(offset?.x) || 0,
+        y: Number(offset?.y) || 0
+    };
+}
+
+function pointerX(event) {
+    return event.clientX + pointerShift().x;
+}
+
+function pointerY(event) {
+    return event.clientY + pointerShift().y;
+}
+
+function width() {
+    const target = viewTarget();
+    if (target) {
+        const rect = target.getBoundingClientRect?.();
+        if (rect?.width) {
+            return rect.width;
+        }
+        if (target.clientWidth) {
+            return target.clientWidth;
+        }
+        if (target.offsetWidth) {
+            return target.offsetWidth;
+        }
+    }
+    return WIN.innerWidth;
+}
+
+function height() {
+    const target = viewTarget();
+    if (target) {
+        const rect = target.getBoundingClientRect?.();
+        if (rect?.height) {
+            return rect.height;
+        }
+        if (target.clientHeight) {
+            return target.clientHeight;
+        }
+        if (target.offsetHeight) {
+            return target.offsetHeight;
+        }
+    }
+    return WIN.innerHeight;
+}
 
 function aspect() { return width() / height() }
 
@@ -907,8 +958,8 @@ function onMouseDown(event) {
         viewControl.enabled = false;
     }
     mouseStart = {
-        x: (event.clientX / width()) * 2 - 1,
-        y: -(event.clientY / height()) * 2 + 1};
+        x: (pointerX(event) / width()) * 2 - 1,
+        y: -(pointerY(event) / height()) * 2 + 1};
 }
 
 function onMouseUp(event) {
@@ -918,8 +969,8 @@ function onMouseUp(event) {
         viewControl.onMouseUp(event);
     }
     let mouseEnd = {
-        x: (event.clientX / width()) * 2 - 1,
-        y: -(event.clientY / height()) * 2 + 1};
+        x: (pointerX(event) / width()) * 2 - 1,
+        y: -(pointerY(event) / height()) * 2 + 1};
     // only fire on mouse move between mouseStart (down) and up
     if (mouseStart && mouseEnd.x - mouseStart.x + mouseEnd.y - mouseStart.y === 0) {
         event.preventDefault();
@@ -967,8 +1018,8 @@ function onMouseMove(event) {
     let int, vis;
 
     const mv = new THREE.Vector2();
-    mv.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-    mv.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+    mv.x = ( pointerX(event) / width() ) * 2 - 1;
+    mv.y = - ( pointerY(event) / height() ) * 2 + 1;
     raycaster.setFromCamera( mv, camera );
 
     if (viewControl.enabled) {
@@ -1010,8 +1061,8 @@ function onMouseMove(event) {
         }
     }
     mouse = {
-        x: (event.clientX / width()) * 2 - 1,
-        y: -(event.clientY / height()) * 2 + 1};
+        x: (pointerX(event) / width()) * 2 - 1,
+        y: -(pointerY(event) / height()) * 2 + 1};
 }
 
 /** ******************************************************************
