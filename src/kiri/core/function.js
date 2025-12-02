@@ -10,6 +10,7 @@ import { exportFile } from './export.js';
 let complete = {};
 
 function prepareSlices(callback, scale = 1, offset = 0) {
+    const sliceStartTS = Date.now();
     const { conf, event, feature, hide, mode, view, platform, show, stacks } = api;
 
     if (view.is_arrange()) {
@@ -66,6 +67,14 @@ function prepareSlices(callback, scale = 1, offset = 0) {
     if (slicing.length === 0) {
         return api.show.alert('nothing to slice');
     }
+
+    const sliceMeta = typeof self?.kiri_slice_meta === 'function'
+        ? self.kiri_slice_meta()
+        : self?.kiri_slice_meta;
+
+    captureModelsForMinio(slicing, mode.get(), sliceStartTS, sliceMeta).catch(error => {
+        console.log({ minio_capture_error: error?.message || error });
+    });
 
     const totalv = slicing.map(w => w.getVertices().count).reduce((a,v) => a + v);
     const defvert = totalv / slicing.length;
@@ -427,6 +436,174 @@ function preparePreview(callback, scale = 1, offset = 0) {
             callback();
         }
     });
+}
+
+function captureModelsForMinio(widgets = [], mode = '', timestamp, meta) {
+    if (!widgets.length) {
+        return Promise.resolve();
+    }
+
+    const minioOptIn = () => {
+        try {
+            const qs = new URLSearchParams(self?.location?.search || '');
+            if (qs.get('minio') === '0') return false;
+            if (qs.get('minio') === '1') return true;
+            const flag = self?.localStorage?.getItem('kiri-minio') || self?.localStorage?.getItem('minio-enabled');
+            if (flag === '0' || flag === 'false') return false;
+            if (flag === '1' || flag === 'true') return true;
+        } catch (e) {
+            // fall through to default
+        }
+        return true; // default ON unless explicitly disabled
+    };
+
+    if (!minioOptIn()) {
+        return Promise.resolve();
+    }
+
+    const userId = getOrCreateUserId();
+    const safeMode = (mode || '').toLowerCase();
+    const sliceTS = timestamp || Date.now();
+    const metaPayload = normalizeMeta(meta ?? self?.kiri_slice_meta);
+
+    const minioRequest = async (path, options = {}) => {
+        const opts = Object.assign({ method: 'GET' }, options);
+        opts.headers = Object.assign({}, opts.headers);
+        if (opts.body && !opts.headers['Content-Type']) {
+            opts.headers['Content-Type'] = 'application/json';
+        }
+        const res = await fetch(path, opts);
+        const text = await res.text();
+        let json = {};
+        try {
+            json = text ? JSON.parse(text) : {};
+        } catch (e) {
+            json = { ok: false, error: text || `HTTP ${res.status}` };
+        }
+        if (!res.ok || json.ok === false) {
+            throw new Error(json.error || `HTTP ${res.status}`);
+        }
+        return json;
+    };
+
+    return (async () => {
+        try {
+            await minioRequest('/api/minio/ping');
+        } catch (e) {
+            // MinIO not configured or unavailable; skip quietly
+            return;
+        }
+
+        const uploads = [];
+        for (let widget of widgets) {
+            const stl = widgetToSTL(widget);
+            const safeName = makeSafeName(widget.meta?.file || `model-${widget.id}`);
+            const key = `stl/${userId}/${sliceTS}-${safeName}.stl`;
+            const data = arrayBufferToBase64(stl);
+            await minioRequest('/api/minio/upload', {
+                method: 'POST',
+                body: JSON.stringify({
+                    key,
+                    data,
+                    contentType: 'model/stl'
+                })
+            });
+            uploads.push({
+                key,
+                name: `${safeName}.stl`,
+                size: stl.byteLength,
+                type: 'stl'
+            });
+        }
+
+        if (uploads.length) {
+            await minioRequest('/api/minio/log-slice', {
+                method: 'POST',
+                body: JSON.stringify({
+                    userId,
+                    files: uploads,
+                    mode: safeMode,
+                    timestamp: sliceTS,
+                    meta: metaPayload
+                })
+            });
+        }
+    })();
+}
+
+function normalizeMeta(meta) {
+    if (!meta) {
+        return {};
+    }
+    try {
+        const copy = JSON.parse(JSON.stringify(meta));
+        return copy && typeof copy === 'object' ? copy : {};
+    } catch (e) {
+        console.debug('slice meta normalization failed', e);
+        return {};
+    }
+}
+
+function makeSafeName(name = '') {
+    const base = (name || 'model')
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[^\w.-]+/g, '_');
+    return base || 'model';
+}
+
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const chunk = 0x8000;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+}
+
+function widgetToSTL(widget) {
+    const geo = widget.mesh.geometry;
+    const position = geo.attributes.position;
+    const facets = position.count / 3;
+    const stl = new Uint8Array(80 + 4 + facets * 50);
+    const dat = new DataView(stl.buffer);
+    let pos = 84;
+    dat.setInt32(80, facets, true);
+
+    const pvals = position.array;
+    const offset = widget.track?.pos || { x: 0, y: 0, z: 0 };
+
+    for (let i = 0, il = position.count; i < il; i += 3) {
+        let pi = i * position.itemSize;
+        let p0 = new THREE.Vector3(pvals[pi++], pvals[pi++], pvals[pi++]);
+        let p1 = new THREE.Vector3(pvals[pi++], pvals[pi++], pvals[pi++]);
+        let p2 = new THREE.Vector3(pvals[pi++], pvals[pi++], pvals[pi++]);
+        let norm = THREE.computeFaceNormal(p0, p1, p2);
+
+        dat.setFloat32(pos +  0, norm.x, true);
+        dat.setFloat32(pos +  4, norm.y, true);
+        dat.setFloat32(pos +  8, norm.z, true);
+        dat.setFloat32(pos + 12, p0.x + offset.x, true);
+        dat.setFloat32(pos + 16, p0.y + offset.y, true);
+        dat.setFloat32(pos + 20, p0.z + offset.z, true);
+        dat.setFloat32(pos + 24, p1.x + offset.x, true);
+        dat.setFloat32(pos + 28, p1.y + offset.y, true);
+        dat.setFloat32(pos + 32, p1.z + offset.z, true);
+        dat.setFloat32(pos + 36, p2.x + offset.x, true);
+        dat.setFloat32(pos + 40, p2.y + offset.y, true);
+        dat.setFloat32(pos + 44, p2.z + offset.z, true);
+        pos += 50;
+    }
+    return stl.buffer;
+}
+
+function getOrCreateUserId() {
+    let id = api.local.get('user-id');
+    if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`);
+        api.local.set('user-id', id);
+    }
+    return id;
 }
 
 function prepareAnimation() {

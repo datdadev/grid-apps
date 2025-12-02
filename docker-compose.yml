@@ -6,12 +6,77 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: kirimoto-web
+    environment:
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: kiriadmin
+      MINIO_SECRET_KEY: kiripassword
+      MINIO_BUCKET: kiri
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: kiri
+      DB_PASSWORD: kiripass
+      DB_NAME: kiri
     ports:
       - "8080:8080"
+    depends_on:
+      - minio
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/kiri/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+  minio:
+    image: quay.io/minio/minio
+    container_name: kiri-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: kiriadmin
+      MINIO_ROOT_PASSWORD: kiripassword
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 20s
+  mariadb:
+    image: mariadb:11
+    container_name: kiri-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: kiridbroot
+      MYSQL_DATABASE: kiri
+      MYSQL_USER: kiri
+      MYSQL_PASSWORD: kiripass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+  adminer:
+    image: adminer
+    container_name: kiri-adminer
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    environment:
+      ADMINER_DEFAULT_SERVER: mariadb
+    ports:
+      - "8082:8080"
+
+volumes:
+  minio-data:
+  mariadb-data:

@@ -374,6 +374,11 @@ function setupSlicing(api, dom) {
             if (uiState.slicing || api.widgets.count() === 0) {
                 return;
             }
+            try {
+                self.kiri_slice_meta = buildSliceMeta(api, dom);
+            } catch (e) {
+                console.debug('capture slice meta failed', e);
+            }
             applyInfillSetting(api, dom);
             applySupportSetting(api, dom);
             startSlicing(api, dom);
@@ -426,6 +431,31 @@ function setupSlicing(api, dom) {
         setSliceProgress(0, false);
         setGlobalInputsEnabled(dom, false);
     });
+}
+
+function buildSliceMeta(api, dom) {
+    const settings = api.conf.get();
+    const proc = settings?.process || {};
+    const device = settings?.device || {};
+    const widgets = api.widgets?.all ? api.widgets.all() : [];
+    const files = widgets.map(w => w?.meta?.file).filter(Boolean);
+    return {
+        source: 'simple-ui',
+        requestedAt: Date.now(),
+        files: files.length ? files : (uiState.fileName ? [uiState.fileName] : []),
+        settings: {
+            device: device.deviceName,
+            infill: proc.sliceFillSparse,
+            infillType: proc.sliceFillType,
+            support: proc.sliceSupportEnable !== false
+        },
+        user: {
+            name: dom.orderName?.value?.trim() || '',
+            phone: dom.orderPhone?.value?.trim() || '',
+            notes: dom.orderNotes?.value?.trim() || ''
+        },
+        stats: uiState.stats
+    };
 }
 
 function setupOrderForm(dom) {

@@ -1,0 +1,26 @@
+services:
+  kiri-all:
+    build:
+      context: .
+      dockerfile: Dockerfile.allinone
+    container_name: kiri-all
+    ports:
+      - "8080:8080"  # Kiri UI/API
+      - "8082:8082"  # Adminer
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO console
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: kiriadmin
+      MINIO_ROOT_PASSWORD: kiripassword
+      MINIO_BUCKET: kiri
+      DB_NAME: kiri
+      DB_USER: kiri
+      DB_PASSWORD: kiripass
+      DB_ROOT_PASSWORD: kiridbroot
+
+volumes:
+  mariadb-data:
+  minio-data:

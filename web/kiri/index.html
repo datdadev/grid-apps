@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="description" content="LTD's Slicing Service - Browser-based 3D slicer">
+    <meta name="description" content="The Uy 3D Printing Service - Browser-based 3D slicer">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LTD's Slicing Service</title>
+    <title>The Uy 3D Printing Service</title>
 
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="favicon-mobile.png">
@@ -279,7 +279,7 @@
     <div id="curtain" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm transition-opacity duration-500">
         <div class="loader w-12 h-12 mb-4 !border-4 !border-t-indigo-600"></div>
         <div class="text-slate-600 font-medium tracking-wide animate-pulse">
-            LTD's Slicing Service is Loading
+            The Uy 3D Printing Service is Loading
         </div>
     </div>
 
@@ -297,7 +297,7 @@
                             <i class="fa-solid fa-cube text-xl"></i>
                         </div>
                         <div class="flex flex-col">
-                            <h1 class="font-bold text-xl text-slate-900 tracking-tight">LTD's Slicing</h1>
+                            <h1 class="font-bold text-xl text-slate-900 tracking-tight">The Uy 3D Printing</h1>
                             <p class="text-xs text-indigo-500 font-semibold uppercase tracking-wider">Service v2.0</p>
                         </div>
                     </div>
@@ -661,7 +661,7 @@
         <div class="grow"></div>
         <div id="app-name" class="f-col a-center top-menu">
             <span class="grow">
-                <span id="app-name-text" class="km-font">LTD's Slicing Service</span>
+                <span id="app-name-text" class="km-font">The Uy 3D Printing Service</span>
             </span>
         </div>
         <div id="doit" class="f-row a-center">
@@ -1047,7 +1047,7 @@
         <!-- help menu -->
         <div id="mod-help" class="mdialog f-col">
             <div class="f-row j-center title">
-                <label>LTD's Slicing Service Help</label>
+                <label>The Uy 3D Printing Service Help</label>
             </div>
             <hr width="100%">
             <div class="f-col">
@@ -1247,6 +1247,19 @@
                     <button id="print-octoprint">send</button>
                 </div>
                 <div id="oph1nt"><label class="hint"><a href="http://docs.octoprint.org/en/master/api/general.html?highlight=cors#cross-origin-requests" target="_help">CORS support</a> must be enabled in API settings</label></div>
+            </div>
+            <div id="minio-head" class="header"><label>minio storage</label></div>
+            <div id="minio-panel" class="f-col box">
+                <div class="f-row gap4 a-center">
+                    <label class="grow0 pad3">path</label>
+                    <input id="minio-path" class="grow" placeholder="prints/job.gcode" />
+                    <button id="print-minio-upload" class="grow0">upload</button>
+                </div>
+                <div class="f-row gap4 a-center">
+                    <button id="print-minio-refresh" class="grow">refresh list</button>
+                    <span id="minio-status" class="hint grow"></span>
+                </div>
+                <div id="minio-list" class="f-col gap3"></div>
             </div>
         </div>
         <div id="mod-x-sla" class="mod-print mdialog f-col">

@@ -37,6 +37,32 @@ The application will be accessible at `http://localhost:8080`
 docker run -d --name kiri-slicer -p 8080:8080 kiri-slicer
 ```
 
+### Enabling MinIO object storage
+
+`docker-compose.yml` now includes a MinIO service for storing exported jobs. Bring both services up with:
+
+```bash
+docker-compose up -d
+```
+
+The defaults expose:
+
+- Kiri at `http://localhost:8080`
+- MinIO API at `http://localhost:9000`
+- MinIO console at `http://localhost:9001` (user: `kiriadmin`, pass: `kiripassword`)
+
+You can override bucket or credentials via the `MINIO_*` environment variables on the `kirimoto-web` service.
+
+### MariaDB + Adminer
+
+The compose file also ships a MariaDB service and an Adminer UI.
+
+- MariaDB: `localhost:3307` (host port), maps to container `3306` (root password `kiridbroot`, database `kiri`, user `kiri` / pass `kiripass`)
+- Adminer: `http://localhost:8082` (default server is `mariadb`)
+
+Adjust credentials by editing the `MYSQL_*` environment variables in `docker-compose.yml` before starting the stack.
+The app container also receives `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME` to talk to MariaDB.
+
 ## Configuration
 
 The application will be available on port 8080. The Docker setup includes:

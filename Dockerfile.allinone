@@ -1,0 +1,51 @@
+FROM node:22-slim
+
+ENV MINIO_ROOT_USER=kiriadmin \
+    MINIO_ROOT_PASSWORD=kiripassword \
+    MINIO_BUCKET=kiri \
+    MINIO_REGION=us-east-1 \
+    DB_NAME=kiri \
+    DB_USER=kiri \
+    DB_PASSWORD=kiripass \
+    DB_ROOT_PASSWORD=kiridbroot
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    supervisor \
+    mariadb-server \
+    php \
+    php-mysql \
+    wget \
+    curl \
+    ca-certificates \
+    git \
+    build-essential \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Prepare MariaDB runtime dirs
+RUN mkdir -p /run/mysqld && chown mysql:mysql /run/mysqld
+
+# MinIO binary
+RUN curl -L https://dl.min.io/server/minio/release/linux-amd64/minio -o /usr/local/bin/minio && \
+    chmod +x /usr/local/bin/minio
+
+# Adminer (simple PHP server)
+RUN mkdir -p /opt/adminer && \
+    wget -O /opt/adminer/index.php https://github.com/vrana/adminer/releases/download/v4.8.1/adminer-4.8.1.php
+
+WORKDIR /app
+COPY . /app
+RUN chown -R node:node /app
+
+# Install dependencies and build once
+RUN npm ci && npm run setup-mods && npm run pack-prod
+
+COPY conf/supervisord-allinone.conf /etc/supervisor/conf.d/allinone.conf
+COPY conf/run-mariadb.sh /usr/local/bin/run-mariadb.sh
+RUN chmod +x /usr/local/bin/run-mariadb.sh
+
+VOLUME ["/var/lib/mysql", "/data"]
+
+EXPOSE 8080 8082 9000 9001
+
+CMD ["/usr/bin/supervisord","-c","/etc/supervisor/supervisord.conf"]

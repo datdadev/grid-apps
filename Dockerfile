@@ -55,11 +55,16 @@ WORKDIR /app
 # Now copy all source code, ignoring the .dockerignore for build purposes
 COPY --chown=node:node . /app
 
-# Install dependencies and build the web application
-RUN npm run setup && npm run pack-prod
+# Install dependencies and build the web application once during image build
+RUN npm run setup && npm run pack-prod \
+    && mkdir -p /app/data /app/logs \
+    && chown -R node:node /app
+
+# Run as non-root inside the container
+USER node
 
 # Expose port 8080
 EXPOSE 8080
 
-# Start the application
-CMD ["npm", "run", "prod"]
+# Start the already-built application without re-running the build
+CMD ["node", "/app/node_modules/@gridspace/app-server/app-server-run.js", "--single"]

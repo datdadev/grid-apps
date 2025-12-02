@@ -602,6 +602,200 @@ function exportGCodeDialog(gcode, sections, info, names) {
             octo_apik.value = localGet('octo-apik') || '';
         } catch (e) { console.log(e) }
 
+        // minio backend (if configured)
+        const minioHead = $('minio-head');
+        const minioPanel = $('minio-panel');
+        const minioStatus = $('minio-status');
+        const minioPath = $('minio-path');
+        const minioList = $('minio-list');
+        const minioUpload = $('print-minio-upload');
+        const minioRefresh = $('print-minio-refresh');
+        let minioEnabled = false;
+
+        const minioOptIn = () => {
+            try {
+                const qs = new URLSearchParams(self?.location?.search || '');
+                const flag = self?.localStorage?.getItem('kiri-minio') || self?.localStorage?.getItem('minio-enabled');
+                if (qs.get('minio') === '0') return false;
+                if (qs.get('minio') === '1') return true;
+                if (flag === '0' || flag === 'false') return false;
+                if (flag === '1' || flag === 'true') return true;
+            } catch (e) {
+                // fall through
+            }
+            return true; // default ON unless explicitly disabled
+        };
+
+        function setMinioVisible(show) {
+            if (minioHead) minioHead.style.display = show ? '' : 'none';
+            if (minioPanel) minioPanel.style.display = show ? '' : 'none';
+        }
+
+        function setMinioStatus(message, isError = false) {
+            if (!minioStatus) return;
+            minioStatus.textContent = message || '';
+            minioStatus.style.color = isError ? '#b33' : '';
+        }
+
+        function encodeBase64(str) {
+            try {
+                return btoa(unescape(encodeURIComponent(str)));
+            } catch (e) {
+                return btoa(str);
+            }
+        }
+
+        function renderSize(bytes = 0) {
+            if (!bytes) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let idx = 0;
+            let val = bytes;
+            while (val >= 1024 && idx < units.length - 1) {
+                val /= 1024;
+                idx++;
+            }
+            return `${val.toFixed(1)} ${units[idx]}`;
+        }
+
+        async function minioRequest(path, options = {}) {
+            const opts = Object.assign({ method: 'GET' }, options);
+            opts.headers = Object.assign({}, opts.headers);
+            if (opts.body && !opts.headers['Content-Type']) {
+                opts.headers['Content-Type'] = 'application/json';
+            }
+            const res = await fetch(path, opts);
+            const text = await res.text();
+            let json = {};
+            try {
+                json = text ? JSON.parse(text) : {};
+            } catch (e) {
+                json = { ok: false, error: text || `HTTP ${res.status}` };
+            }
+            if (!res.ok || json.ok === false) {
+                throw new Error(json.error || `HTTP ${res.status}`);
+            }
+            return json;
+        }
+
+        function renderMinioList(items = []) {
+            if (!minioList) return;
+            minioList.innerHTML = '';
+            if (!items.length) {
+                const empty = document.createElement('div');
+                empty.className = 'hint';
+                empty.textContent = 'bucket empty';
+                minioList.appendChild(empty);
+                return;
+            }
+            const sorted = items.sort((a, b) => {
+                const ab = (new Date(b.lastModified || 0)).getTime();
+                const aa = (new Date(a.lastModified || 0)).getTime();
+                return ab - aa;
+            }).slice(0, 15);
+            for (let item of sorted) {
+                const row = document.createElement('div');
+                row.className = 'f-row a-center gap4';
+                const name = document.createElement('span');
+                name.className = 'grow';
+                name.textContent = item.name;
+                const size = document.createElement('span');
+                size.className = 'hint grow0';
+                size.textContent = renderSize(item.size);
+                const getBtn = document.createElement('button');
+                getBtn.textContent = 'get';
+                getBtn.onclick = () => window.open(`/api/minio/object?key=${encodeURIComponent(item.name)}`, '_blank');
+                const delBtn = document.createElement('button');
+                delBtn.textContent = 'delete';
+                delBtn.onclick = () => deleteMinio(item.name);
+                row.appendChild(name);
+                row.appendChild(size);
+                row.appendChild(getBtn);
+                row.appendChild(delBtn);
+                minioList.appendChild(row);
+            }
+        }
+
+        async function loadMinioList() {
+            if (!minioEnabled) return;
+            setMinioStatus('loading...');
+            try {
+                const res = await minioRequest('/api/minio/list');
+                renderMinioList(res.items || []);
+                setMinioStatus(`found ${res.items?.length || 0} objects`);
+            } catch (error) {
+                setMinioStatus(error.message, true);
+            }
+        }
+
+        async function deleteMinio(key) {
+            if (!key) return;
+            setMinioStatus(`deleting ${key}...`);
+            try {
+                await minioRequest('/api/minio/delete', {
+                    method: 'POST',
+                    body: JSON.stringify({ key })
+                });
+                setMinioStatus(`deleted ${key}`);
+                loadMinioList();
+            } catch (error) {
+                setMinioStatus(error.message, true);
+            }
+        }
+
+        async function uploadToMinio() {
+            if (!minioEnabled) return;
+            const key = (minioPath?.value || `${$('print-filename').value}.${fileext}`).trim();
+            if (!key) {
+                setMinioStatus('missing object key', true);
+                return;
+            }
+            setMinioStatus(`uploading ${key}...`);
+            api.show.progress(0.1, "uploading to minio");
+            try {
+                await minioRequest('/api/minio/upload', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        key,
+                        data: encodeBase64(gcode),
+                        contentType: 'text/plain'
+                    })
+                });
+                setMinioStatus(`uploaded ${key}`);
+                loadMinioList();
+            } catch (error) {
+                setMinioStatus(error.message, true);
+            } finally {
+                api.show.progress(0);
+            }
+        }
+
+        setMinioVisible(false);
+        if (!minioOptIn()) {
+            setMinioVisible(false);
+            setMinioStatus('');
+            return;
+        }
+        (async () => {
+            try {
+                const res = await minioRequest('/api/minio/ping');
+                if (res?.ok) {
+                    minioEnabled = true;
+                    if (minioPath) {
+                        minioPath.value = `${$('print-filename').value}.${fileext}`;
+                    }
+                    setMinioVisible(true);
+                    setMinioStatus(`bucket ${res.bucket || ''}`);
+                    if (minioUpload) minioUpload.onclick = uploadToMinio;
+                    if (minioRefresh) minioRefresh.onclick = loadMinioList;
+                    loadMinioList();
+                } else {
+                    setMinioVisible(false);
+                }
+            } catch (e) {
+                setMinioVisible(false);
+            }
+        })();
+
         // preview of the generated GCODE (first 64k max)
         if (preview && gcode) $('code-preview-textarea').value = gcode.substring(0,65535);
 }
