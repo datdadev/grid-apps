@@ -224,10 +224,10 @@ const STLViewer = ({ url }) => {
   );
 };
 
-function ServerPortal() {
+function MinioPortal() {
   const [connection, setConnection] = useState({
     ready: false,
-    bucket: "storage1",
+    bucket: "storage_1",
     endpoint: "127.0.0.1",
     port: 9000,
     useSSL: false,
@@ -241,6 +241,7 @@ function ServerPortal() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
+  const [flattenMode, setFlattenMode] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -258,7 +259,7 @@ function ServerPortal() {
         hasClient: data.hasClient,
       });
       if (!data.ok) {
-        setError("Server chưa sẵn sàng. Thử lại sau.");
+        setError("MinIO chưa sẵn sàng. Thử lại sau.");
       } else {
         setError(null);
       }
@@ -270,7 +271,7 @@ function ServerPortal() {
         ready: false,
         hasClient: false,
       }));
-      setError(err.message || "Không thể kết nối Server");
+      setError(err.message || "Không thể kết nối MinIO");
       return false;
     }
   }, []);
@@ -295,7 +296,7 @@ function ServerPortal() {
       } catch (err) {
         console.error(err);
         setFiles([]);
-        setError(err.message || "Không thể tải dữ liệu Server");
+        setError(err.message || "Không thể tải dữ liệu MinIO");
       } finally {
         setIsLoading(false);
       }
@@ -308,12 +309,15 @@ function ServerPortal() {
   }, [fetchStatus]);
 
   useEffect(() => {
-    if (connection.ready) {
+    if (connection.ready && !flattenMode) {
       fetchFiles(currentPath);
     }
-  }, [connection.ready, currentPath, fetchFiles]);
+  }, [connection.ready, currentPath, fetchFiles, flattenMode]);
 
   const handleNavigate = (path) => {
+    if (flattenMode) {
+      setFlattenMode(false);
+    }
     setCurrentPath(path);
     setSearchTerm("");
   };
@@ -355,10 +359,38 @@ function ServerPortal() {
   };
 
   const connectionStatus = connection.ready
-    ? "Server đã kết nối"
+    ? "MinIO đã kết nối"
     : connection.hasClient
-    ? "Đang đợi Server phản hồi..."
+    ? "Đang đợi MinIO phản hồi..."
     : "Storage API không khả dụng";
+
+  const handleFlattenToggle = async () => {
+    if (flattenMode) {
+      setFlattenMode(false);
+      fetchFiles(currentPath);
+      return;
+    }
+    if (!connection.ready) {
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/storage/flatten?ext=stl");
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Không thể tải dữ liệu MinIO");
+      }
+      setFiles(data.items || []);
+      setFlattenMode(true);
+      setCurrentPath("");
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Không thể tải dữ liệu MinIO");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredFiles = files.filter((f) => {
     const name = f.key.split("/").filter(Boolean).pop() || f.key;
@@ -379,24 +411,33 @@ function ServerPortal() {
         >
           <HardDrive className="w-4 h-4 mr-1" /> {rootLabel}
         </button>
-        {parts.map((part, index) => {
-          pathAccumulator += part + "/";
-          const isLast = index === parts.length - 1;
-          const targetPath = pathAccumulator;
-          return (
-            <React.Fragment key={targetPath}>
-              <ChevronRight className="w-4 h-4 text-gray-400" />
-              <button
-                onClick={() => handleNavigate(targetPath)}
-                className={`hover:text-blue-600 ${
-                  isLast ? "font-bold text-gray-800" : ""
-                }`}
-              >
-                {part}
-              </button>
-            </React.Fragment>
-          );
-        })}
+        {flattenMode ? (
+          <>
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+              Toàn bộ STL
+            </span>
+          </>
+        ) : (
+          parts.map((part, index) => {
+            pathAccumulator += part + "/";
+            const isLast = index === parts.length - 1;
+            const targetPath = pathAccumulator;
+            return (
+              <React.Fragment key={targetPath}>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <button
+                  onClick={() => handleNavigate(targetPath)}
+                  className={`hover:text-blue-600 ${
+                    isLast ? "font-bold text-gray-800" : ""
+                  }`}
+                >
+                  {part}
+                </button>
+              </React.Fragment>
+            );
+          })
+        )}
       </div>
     );
   };
@@ -453,7 +494,7 @@ function ServerPortal() {
           <div className="flex items-center bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-100 max-w-full overflow-hidden">
             <button
               onClick={handleUpLevel}
-              disabled={!currentPath}
+              disabled={!currentPath || flattenMode}
               className="mr-3 p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -493,6 +534,16 @@ function ServerPortal() {
                 <List className="w-5 h-5" />
               </button>
             </div>
+            <button
+              onClick={handleFlattenToggle}
+              className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                flattenMode
+                  ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                  : "bg-white text-gray-600 border-gray-200 hover:text-blue-600"
+              }`}
+            >
+              {flattenMode ? "Thoát chế độ toàn bộ STL" : "Xem toàn bộ STL"}
+            </button>
           </div>
         </div>
 
@@ -505,7 +556,7 @@ function ServerPortal() {
               <div className="ml-3">
                 <p className="text-sm text-red-700">{error}</p>
                 <p className="text-xs text-red-500 mt-1">
-                  Kiểm tra container Server hoặc endpoint{" "}
+                  Kiểm tra container MinIO hoặc endpoint{" "}
                   <code>/api/storage/status</code>.
                 </p>
               </div>
@@ -632,7 +683,7 @@ function ServerPortal() {
 
       <footer className="bg-white border-t border-gray-200 py-4 mt-auto">
         <div className="max-w-7xl mx-auto px-4 text-center text-gray-400 text-sm">
-          &copy; 2024 Kiri Storage System. Powered by LTD's Service.
+          &copy; 2025 The Uy's Storage System. Powered by LTD's Service.
         </div>
       </footer>
 
@@ -641,7 +692,7 @@ function ServerPortal() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold text-gray-900">
-                Cấu hình kết nối Server
+                Cấu hình kết nối MinIO
               </h2>
               <button
                 onClick={() => setShowSettings(false)}
@@ -702,7 +753,7 @@ function ServerPortal() {
               </div>
               <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
                 Cấu hình nằm trong container nên bạn không cần nhập thủ công.
-                Sử dụng biến môi trường <code>Server_*</code> trong docker stack
+                Sử dụng biến môi trường <code>MINIO_*</code> trong docker stack
                 để thay đổi thông số nếu cần.
               </div>
             </div>
@@ -779,4 +830,4 @@ function ServerPortal() {
 }
 
 const root = createRoot(document.getElementById("root"));
-root.render(<ServerPortal />);
+root.render(<MinioPortal />);

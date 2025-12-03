@@ -192,6 +192,55 @@ const listObjects = (prefix, res) =>
     });
   });
 
+const listAllObjects = ({ extension }, res) =>
+  new Promise((resolve) => {
+    const items = [];
+    const normalizedExt = extension ? `.${extension.toLowerCase()}` : null;
+    let finished = false;
+
+    const done = (payload, code = 200) => {
+      if (finished) return;
+      finished = true;
+      sendJSON(res, code, payload);
+      resolve();
+    };
+
+    const stream = minioClient.listObjectsV2(MINIO_BUCKET, '', true);
+
+    stream.on('data', (obj) => {
+      if (!obj || !obj.name || obj.name.endsWith('/')) {
+        return;
+      }
+      if (
+        normalizedExt &&
+        !obj.name.toLowerCase().endsWith(normalizedExt)
+      ) {
+        return;
+      }
+      items.push({
+        key: obj.name,
+        isFolder: false,
+        size: obj.size,
+        lastModified: obj.lastModified
+          ? new Date(obj.lastModified).toISOString()
+          : null,
+      });
+    });
+
+    stream.on('end', () =>
+      done({
+        ok: true,
+        bucket: MINIO_BUCKET,
+        items,
+        flattened: true,
+      })
+    );
+    stream.on('error', (error) => {
+      warn('MinIO flatten error:', error.message);
+      done({ ok: false, error: error.message }, 500);
+    });
+  });
+
 const streamObject = async (key, mode, res) => {
   try {
     const stat = await minioClient.statObject(MINIO_BUCKET, key).catch(() => ({
@@ -280,6 +329,11 @@ app.use((req, res, next) => {
     if (pathname === '/api/storage/list') {
       const prefix = url.searchParams.get('prefix') || '';
       return listObjects(prefix, res);
+    }
+
+    if (pathname === '/api/storage/flatten') {
+      const ext = url.searchParams.get('ext') || '';
+      return listAllObjects({ extension: ext }, res);
     }
 
     if (pathname === '/api/storage/file') {
