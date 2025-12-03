@@ -3,7 +3,8 @@ module.exports = {
   content: [
     "./web/kiri/**/*.{html,js}",
     "./web/kiri/**/*.mjs",
-    "./web/kiri/**/*.ts"
+    "./web/kiri/**/*.ts",
+    "./web/minio/**/*.{html,js,jsx}"
   ],
   theme: {
     extend: {

@@ -9,6 +9,7 @@ services:
       - "8082:8082"  # Adminer
       - "9000:9000"  # MinIO API
       - "9001:9001"  # MinIO console
+      - "9123:9123"  # MinIO portal
     volumes:
       - mariadb-data:/var/lib/mysql
       - minio-data:/data

@@ -52,6 +52,7 @@
         "express-useragent": "^1.0.13",
         "fast-glob": "^3.3.3",
         "i": "^0.3.7",
+        "lucide-react": "^0.555.0",
         "jszip": "^3.7.1",
         "manifold-3d": "^3.2.1",
         "moment": "^2.29.4",
@@ -124,7 +125,9 @@
         "webpack-src": "node bin/esbuild.config.mjs",
         "webpack-three": "npx webpack --config bin/webpack-three-esm.js",
         "webpack-zip": "npx webpack --config bin/webpack-jszip-esm.js",
-        "tailwind:kiri": "tailwindcss -i ./web/kiri/tailwind.css -o ./web/kiri/tailwind.generated.css --minify"
+        "tailwind:kiri": "tailwindcss -i ./web/kiri/tailwind.css -o ./web/kiri/tailwind.generated.css --minify",
+        "minio:build": "tailwindcss -i ./web/minio/tailwind.css -o ./web/minio/tailwind.generated.css --minify && npx esbuild web/minio/src/main.jsx --bundle --minify --format=iife --outfile=web/minio/app.js",
+        "minio:portal": "node bin/minio-portal.js"
     },
     "main": "app-el.js",
     "build": {
