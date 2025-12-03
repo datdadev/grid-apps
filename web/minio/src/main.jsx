@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Folder,
@@ -224,7 +224,7 @@ const STLViewer = ({ url }) => {
   );
 };
 
-function MinioPortal() {
+function ServerPortal() {
   const [connection, setConnection] = useState({
     ready: false,
     bucket: "storage_1",
@@ -242,6 +242,8 @@ function MinioPortal() {
   const [showSettings, setShowSettings] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
   const [flattenMode, setFlattenMode] = useState(false);
+  const [sortField, setSortField] = useState("name");
+  const [sortDir, setSortDir] = useState("asc");
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -259,7 +261,7 @@ function MinioPortal() {
         hasClient: data.hasClient,
       });
       if (!data.ok) {
-        setError("MinIO chưa sẵn sàng. Thử lại sau.");
+        setError("Server chưa sẵn sàng. Thử lại sau.");
       } else {
         setError(null);
       }
@@ -271,7 +273,7 @@ function MinioPortal() {
         ready: false,
         hasClient: false,
       }));
-      setError(err.message || "Không thể kết nối MinIO");
+      setError(err.message || "Không thể kết nối Server");
       return false;
     }
   }, []);
@@ -296,7 +298,7 @@ function MinioPortal() {
       } catch (err) {
         console.error(err);
         setFiles([]);
-        setError(err.message || "Không thể tải dữ liệu MinIO");
+        setError(err.message || "Không thể tải dữ liệu Server");
       } finally {
         setIsLoading(false);
       }
@@ -359,9 +361,9 @@ function MinioPortal() {
   };
 
   const connectionStatus = connection.ready
-    ? "MinIO đã kết nối"
+    ? "Server đã kết nối"
     : connection.hasClient
-    ? "Đang đợi MinIO phản hồi..."
+    ? "Đang đợi Server phản hồi..."
     : "Storage API không khả dụng";
 
   const handleFlattenToggle = async () => {
@@ -379,14 +381,14 @@ function MinioPortal() {
       const res = await fetch("/api/storage/flatten?ext=stl");
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Không thể tải dữ liệu MinIO");
+        throw new Error(data.error || "Không thể tải dữ liệu Server");
       }
       setFiles(data.items || []);
       setFlattenMode(true);
       setCurrentPath("");
     } catch (err) {
       console.error(err);
-      setError(err.message || "Không thể tải dữ liệu MinIO");
+      setError(err.message || "Không thể tải dữ liệu Server");
     } finally {
       setIsLoading(false);
     }
@@ -396,6 +398,54 @@ function MinioPortal() {
     const name = f.key.split("/").filter(Boolean).pop() || f.key;
     return name.toLowerCase().includes(searchTerm.toLowerCase());
   });
+
+  const sortedFiles = useMemo(() => {
+    const list = [...filteredFiles];
+    const compareStrings = (a, b) =>
+      a.localeCompare(b, "vi", { sensitivity: "base" });
+    list.sort((a, b) => {
+      const nameA = a.key.split("/").filter(Boolean).pop() || a.key;
+      const nameB = b.key.split("/").filter(Boolean).pop() || b.key;
+      let result = 0;
+      if (sortField === "size") {
+        const sizeA = a.isFolder ? 0 : a.size || 0;
+        const sizeB = b.isFolder ? 0 : b.size || 0;
+        result = sizeA - sizeB;
+      } else if (sortField === "date") {
+        const dateA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+        const dateB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+        result = dateA - dateB;
+      } else {
+        result = compareStrings(nameA, nameB);
+      }
+      if (result === 0 && sortField !== "name") {
+        result = compareStrings(nameA, nameB);
+      }
+      return sortDir === "asc" ? result : -result;
+    });
+    return list;
+  }, [filteredFiles, sortField, sortDir]);
+
+  const handleSort = (field) => {
+    if (field === sortField) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const renderSortIndicator = (field) => {
+    if (sortField !== field) return null;
+    return (
+      <span className="ml-1 text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>
+    );
+  };
+
+  const headerButtonClass = (field) =>
+    `flex items-center ${
+      sortField === field ? "text-blue-600" : "text-gray-500"
+    }`;
 
   const getBreadcrumbs = () => {
     const parts = currentPath.split("/").filter(Boolean);
@@ -556,7 +606,7 @@ function MinioPortal() {
               <div className="ml-3">
                 <p className="text-sm text-red-700">{error}</p>
                 <p className="text-xs text-red-500 mt-1">
-                  Kiểm tra container MinIO hoặc endpoint{" "}
+                  Kiểm tra container Server hoặc endpoint{" "}
                   <code>/api/storage/status</code>.
                 </p>
               </div>
@@ -568,14 +618,14 @@ function MinioPortal() {
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-        ) : filteredFiles.length === 0 ? (
+        ) : sortedFiles.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-400 bg-white rounded-xl border-2 border-dashed border-gray-200">
             <Folder className="w-16 h-16 mb-4 text-gray-200" />
             <p>Thư mục trống</p>
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {filteredFiles.map((file) => {
+            {sortedFiles.map((file) => {
               const name = file.key.split("/").filter(Boolean).pop();
               return (
                 <div
@@ -610,14 +660,32 @@ function MinioPortal() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tên
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    <button
+                      className={headerButtonClass("name")}
+                      onClick={() => handleSort("name")}
+                    >
+                      Tên
+                      {renderSortIndicator("name")}
+                    </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kích thước
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    <button
+                      className={headerButtonClass("size")}
+                      onClick={() => handleSort("size")}
+                    >
+                      Kích thước
+                      {renderSortIndicator("size")}
+                    </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                    Ngày sửa đổi
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell">
+                    <button
+                      className={headerButtonClass("date")}
+                      onClick={() => handleSort("date")}
+                    >
+                      Ngày sửa đổi
+                      {renderSortIndicator("date")}
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Thao tác
@@ -625,7 +693,7 @@ function MinioPortal() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredFiles.map((file) => {
+                {sortedFiles.map((file) => {
                   const name = file.key.split("/").filter(Boolean).pop();
                   return (
                     <tr
@@ -692,7 +760,7 @@ function MinioPortal() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold text-gray-900">
-                Cấu hình kết nối MinIO
+                Cấu hình kết nối Server
               </h2>
               <button
                 onClick={() => setShowSettings(false)}
@@ -753,7 +821,7 @@ function MinioPortal() {
               </div>
               <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
                 Cấu hình nằm trong container nên bạn không cần nhập thủ công.
-                Sử dụng biến môi trường <code>MINIO_*</code> trong docker stack
+                Sử dụng biến môi trường <code>Server_*</code> trong docker stack
                 để thay đổi thông số nếu cần.
               </div>
             </div>
@@ -830,4 +898,4 @@ function MinioPortal() {
 }
 
 const root = createRoot(document.getElementById("root"));
-root.render(<MinioPortal />);
+root.render(<ServerPortal />);
