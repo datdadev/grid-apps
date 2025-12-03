@@ -10,7 +10,7 @@ module.exports = function initMinio(server) {
         MINIO_USE_SSL = 'false',
         MINIO_ACCESS_KEY = process.env.MINIO_ROOT_USER,
         MINIO_SECRET_KEY = process.env.MINIO_ROOT_PASSWORD,
-        MINIO_BUCKET = 'kiri',
+        MINIO_BUCKET = 'storage1',
         MINIO_REGION,
         DB_HOST = 'mariadb',
         DB_PORT = '3306',

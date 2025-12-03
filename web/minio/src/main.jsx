@@ -224,10 +224,10 @@ const STLViewer = ({ url }) => {
   );
 };
 
-function MinioPortal() {
+function ServerPortal() {
   const [connection, setConnection] = useState({
     ready: false,
-    bucket: "kiri",
+    bucket: "storage1",
     endpoint: "127.0.0.1",
     port: 9000,
     useSSL: false,
@@ -258,7 +258,7 @@ function MinioPortal() {
         hasClient: data.hasClient,
       });
       if (!data.ok) {
-        setError("MinIO chưa sẵn sàng. Thử lại sau.");
+        setError("Server chưa sẵn sàng. Thử lại sau.");
       } else {
         setError(null);
       }
@@ -270,7 +270,7 @@ function MinioPortal() {
         ready: false,
         hasClient: false,
       }));
-      setError(err.message || "Không thể kết nối MinIO");
+      setError(err.message || "Không thể kết nối Server");
       return false;
     }
   }, []);
@@ -295,7 +295,7 @@ function MinioPortal() {
       } catch (err) {
         console.error(err);
         setFiles([]);
-        setError(err.message || "Không thể tải dữ liệu MinIO");
+        setError(err.message || "Không thể tải dữ liệu Server");
       } finally {
         setIsLoading(false);
       }
@@ -355,9 +355,9 @@ function MinioPortal() {
   };
 
   const connectionStatus = connection.ready
-    ? "MinIO đã kết nối"
+    ? "Server đã kết nối"
     : connection.hasClient
-    ? "Đang đợi MinIO phản hồi..."
+    ? "Đang đợi Server phản hồi..."
     : "Storage API không khả dụng";
 
   const filteredFiles = files.filter((f) => {
@@ -432,7 +432,7 @@ function MinioPortal() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          {/* <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowSettings(true)}
               className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${
@@ -444,7 +444,7 @@ function MinioPortal() {
             >
               <Settings className="w-5 h-5" />
             </button>
-          </div>
+          </div> */}
         </div>
       </header>
 
@@ -505,7 +505,7 @@ function MinioPortal() {
               <div className="ml-3">
                 <p className="text-sm text-red-700">{error}</p>
                 <p className="text-xs text-red-500 mt-1">
-                  Kiểm tra container MinIO hoặc endpoint{" "}
+                  Kiểm tra container Server hoặc endpoint{" "}
                   <code>/api/storage/status</code>.
                 </p>
               </div>
@@ -582,7 +582,7 @@ function MinioPortal() {
                       className="hover:bg-blue-50 transition-colors cursor-pointer group"
                       onClick={() => handleFileClick(file)}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-2 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded bg-gray-50">
                             {file.isFolder ? (
@@ -641,7 +641,7 @@ function MinioPortal() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold text-gray-900">
-                Cấu hình kết nối MinIO
+                Cấu hình kết nối Server
               </h2>
               <button
                 onClick={() => setShowSettings(false)}
@@ -702,7 +702,7 @@ function MinioPortal() {
               </div>
               <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
                 Cấu hình nằm trong container nên bạn không cần nhập thủ công.
-                Sử dụng biến môi trường <code>MINIO_*</code> trong docker stack
+                Sử dụng biến môi trường <code>Server_*</code> trong docker stack
                 để thay đổi thông số nếu cần.
               </div>
             </div>
@@ -779,4 +779,4 @@ function MinioPortal() {
 }
 
 const root = createRoot(document.getElementById("root"));
-root.render(<MinioPortal />);
+root.render(<ServerPortal />);

@@ -43,7 +43,7 @@ const MINIO_ACCESS_KEY =
   process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER;
 const MINIO_SECRET_KEY =
   process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD;
-const MINIO_BUCKET = process.env.MINIO_BUCKET || 'kiri';
+const MINIO_BUCKET = process.env.MINIO_BUCKET || 'storage1';
 const MINIO_REGION = process.env.MINIO_REGION;
 
 const loadMinioModule = () => {

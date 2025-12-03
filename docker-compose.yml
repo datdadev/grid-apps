@@ -12,7 +12,7 @@ services:
       MINIO_USE_SSL: "false"
       MINIO_ACCESS_KEY: kiriadmin
       MINIO_SECRET_KEY: kiripassword
-      MINIO_BUCKET: kiri
+      MINIO_BUCKET: storage1
       DB_HOST: mariadb
       DB_PORT: 3306
       DB_USER: kiri

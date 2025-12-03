@@ -2,7 +2,7 @@ FROM node:22-slim
 
 ENV MINIO_ROOT_USER=kiriadmin \
     MINIO_ROOT_PASSWORD=kiripassword \
-    MINIO_BUCKET=kiri \
+    MINIO_BUCKET=storage1 \
     MINIO_REGION=us-east-1 \
     DB_NAME=kiri \
     DB_USER=kiri \
