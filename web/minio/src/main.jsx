@@ -70,6 +70,9 @@ const isSTL = (fileName) => {
   return ext === "stl";
 };
 
+let threeLoaderPromise = null;
+const stlPreviewCache = new Map();
+
 const loadThreeJS = async () => {
   if (
     window.THREE &&
@@ -77,6 +80,10 @@ const loadThreeJS = async () => {
     window.THREE.OrbitControls
   ) {
     return window.THREE;
+  }
+
+  if (threeLoaderPromise) {
+    return threeLoaderPromise;
   }
 
   const loadScript = (src) =>
@@ -88,22 +95,26 @@ const loadThreeJS = async () => {
       document.body.appendChild(script);
     });
 
-  if (!window.THREE) {
-    await loadScript(
-      "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
-    );
-  }
-  if (!window.THREE.STLLoader) {
-    await loadScript(
-      "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"
-    );
-  }
-  if (!window.THREE.OrbitControls) {
-    await loadScript(
-      "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"
-    );
-  }
-  return window.THREE;
+  threeLoaderPromise = (async () => {
+    if (!window.THREE) {
+      await loadScript(
+        "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+      );
+    }
+    if (!window.THREE.STLLoader) {
+      await loadScript(
+        "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"
+      );
+    }
+    if (!window.THREE.OrbitControls) {
+      await loadScript(
+        "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"
+      );
+    }
+    return window.THREE;
+  })();
+
+  return threeLoaderPromise;
 };
 
 const STLViewer = ({ url }) => {
@@ -220,6 +231,132 @@ const STLViewer = ({ url }) => {
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 bg-white bg-opacity-80 px-2 py-1 rounded shadow pointer-events-none">
         Chuột trái: Xoay • Chuột phải: Di chuyển • Lăn chuột: Zoom
       </div>
+    </div>
+  );
+};
+
+const PREVIEW_FAILED = Symbol('preview-failed');
+
+const useStlPreview = (key, url) => {
+  const [preview, setPreview] = useState(() => stlPreviewCache.get(key) || null);
+
+  useEffect(() => {
+    if (!key || !url) {
+      return undefined;
+    }
+    if (stlPreviewCache.get(key)) {
+      setPreview(stlPreviewCache.get(key));
+      return undefined;
+    }
+
+    let mounted = true;
+    let renderer;
+    let scene;
+    let camera;
+    let mesh;
+
+    (async () => {
+      try {
+        const THREE = await loadThreeJS();
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+        camera = new THREE.PerspectiveCamera(35, 1, 0.1, 1000);
+        camera.position.set(40, 40, 40);
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+          preserveDrawingBuffer: true,
+        });
+        renderer.setSize(200, 200);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight.position.set(50, 80, 50);
+        scene.add(dirLight);
+        const loader = new THREE.STLLoader();
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error("Failed to fetch STL");
+        }
+        const buffer = await response.arrayBuffer();
+        const geometry = loader.parse(buffer);
+        geometry.computeBoundingBox();
+        geometry.boundingBox.getCenter(new THREE.Vector3());
+        geometry.center();
+        const material = new THREE.MeshPhongMaterial({
+          color: 0x2563eb,
+          specular: 0x111111,
+          shininess: 60,
+        });
+        mesh = new THREE.Mesh(geometry, material);
+        const box = geometry.boundingBox;
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const scale = 25 / maxDim;
+        mesh.scale.set(scale, scale, scale);
+        mesh.rotation.x = -Math.PI / 4;
+        mesh.rotation.z = Math.PI / 5;
+        scene.add(mesh);
+        renderer.render(scene, camera);
+        requestAnimationFrame(() => {
+          let dataUrl = null;
+          try {
+            dataUrl = renderer.domElement.toDataURL("image/png");
+          } catch (err) {
+            console.warn("Canvas toDataURL failed", err);
+          }
+          const cacheValue = dataUrl || PREVIEW_FAILED;
+          stlPreviewCache.set(key, cacheValue);
+          if (mounted) {
+            setPreview(cacheValue);
+          }
+        });
+      } catch (err) {
+        console.error("STL preview build error", err);
+        stlPreviewCache.set(key, PREVIEW_FAILED);
+        if (mounted) {
+          setPreview(PREVIEW_FAILED);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      if (mesh && mesh.geometry) {
+        mesh.geometry.dispose();
+      }
+      if (renderer) {
+        renderer.dispose();
+      }
+    };
+  }, [key, url]);
+
+  return preview;
+};
+
+const STLPreviewImage = ({ fileKey, url }) => {
+  const preview = useStlPreview(fileKey, url);
+  if (preview && preview !== PREVIEW_FAILED) {
+    return (
+      <img
+        src={preview}
+        alt={fileKey}
+        className="w-full h-full object-contain"
+        loading="lazy"
+      />
+    );
+  }
+  if (preview === PREVIEW_FAILED) {
+    return (
+      <div className="text-[10px] text-red-400 px-2 text-center">
+        Không thể dựng hình
+      </div>
+    );
+  }
+  return (
+    <div className="text-[10px] text-gray-400 px-2 text-center">
+      Đang dựng hình...
     </div>
   );
 };
@@ -658,17 +795,24 @@ function ServerPortal() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {sortedFiles.map((file) => {
               const name = file.key.split("/").filter(Boolean).pop();
+              const isFolder = file.isFolder;
+              const isStlFile = isSTL(file.key);
+              const inlineUrl = buildFileUrl(file.key, { inline: true });
               return (
                 <div
                   key={file.key}
                   onClick={() => handleFileClick(file)}
                   className="group bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer flex flex-col items-center text-center relative"
                 >
-                  <div className="w-16 h-16 mb-3 flex items-center justify-center bg-gray-50 rounded-full group-hover:scale-110 transition-transform">
-                    {file.isFolder ? (
-                      <Folder className="w-8 h-8 text-yellow-500" />
+                  <div className="w-28 h-28 mb-3 flex items-center justify-center bg-gray-50 rounded-xl overflow-hidden">
+                    {isFolder ? (
+                      <Folder className="w-10 h-10 text-yellow-500" />
+                    ) : isStlFile ? (
+                      <STLPreviewImage fileKey={file.key} url={inlineUrl} />
                     ) : (
-                      getFileIcon(name)
+                      <div className="w-16 h-16 flex items-center justify-center rounded-full bg-white">
+                        {getFileIcon(name)}
+                      </div>
                     )}
                   </div>
                   <span
@@ -677,7 +821,7 @@ function ServerPortal() {
                   >
                     {name}
                   </span>
-                  {!file.isFolder && (
+                  {!isFolder && (
                     <span className="text-xs text-gray-400 mt-1">
                       {formatBytes(file.size)}
                     </span>
