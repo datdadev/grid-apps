@@ -447,6 +447,20 @@ function ServerPortal() {
       sortField === field ? "text-blue-600" : "text-gray-500"
     }`;
 
+  const summary = useMemo(() => {
+    let totalSize = 0;
+    let stlCount = 0;
+    sortedFiles.forEach((file) => {
+      if (!file.isFolder) {
+        totalSize += file.size || 0;
+        if (isSTL(file.key)) {
+          stlCount += 1;
+        }
+      }
+    });
+    return { totalSize, stlCount };
+  }, [sortedFiles]);
+
   const getBreadcrumbs = () => {
     const parts = currentPath.split("/").filter(Boolean);
     let pathAccumulator = "";
@@ -584,6 +598,14 @@ function ServerPortal() {
                 <List className="w-5 h-5" />
               </button>
             </div>
+            <div className="hidden sm:flex flex-col text-xs text-gray-500 bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
+              <span>
+                STL: <span className="font-semibold text-gray-800">{summary.stlCount}</span>
+              </span>
+              <span>
+                Tổng dung lượng: <span className="font-semibold text-gray-800">{formatBytes(summary.totalSize) || "0"}</span>
+              </span>
+            </div>
             <button
               onClick={handleFlattenToggle}
               className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
@@ -594,6 +616,15 @@ function ServerPortal() {
             >
               {flattenMode ? "Thoát chế độ toàn bộ STL" : "Xem toàn bộ STL"}
             </button>
+          </div>
+        </div>
+
+        <div className="sm:hidden bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 shadow-sm mb-4">
+          <div>
+            STL: <span className="font-semibold text-gray-800">{summary.stlCount}</span>
+          </div>
+          <div>
+            Tổng dung lượng: <span className="font-semibold text-gray-800">{formatBytes(summary.totalSize) || "0"}</span>
           </div>
         </div>
 
