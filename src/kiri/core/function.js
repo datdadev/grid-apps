@@ -517,16 +517,40 @@ function captureModelsForMinio(widgets = [], mode = '', timestamp, meta) {
         }
 
         if (uploads.length) {
-            await minioRequest('/api/minio/log-slice', {
-                method: 'POST',
-                body: JSON.stringify({
-                    userId,
-                    files: uploads,
-                    mode: safeMode,
-                    timestamp: sliceTS,
-                    meta: metaPayload
-                })
-            });
+            // Retry mechanism for log-slice to handle "database not ready" (503) errors
+            const logSliceWithRetry = async (maxRetries = 5, delayMs = 2000) => {
+                let attempts = 0;
+                while (attempts < maxRetries) {
+                    try {
+                        return await minioRequest('/api/minio/log-slice', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                userId,
+                                files: uploads,
+                                mode: safeMode,
+                                timestamp: sliceTS,
+                                meta: metaPayload
+                            })
+                        });
+                    } catch (error) {
+                        // Check if this is a "database not ready" error (503) or similar
+                        if (error.message.includes('503') || error.message.includes('database not ready')) {
+                            attempts++;
+                            if (attempts >= maxRetries) {
+                                console.warn(`Failed to log slice after ${maxRetries} attempts:`, error.message);
+                                throw error; // Re-throw after max retries
+                            }
+                            console.log(`Database not ready, retrying in ${delayMs}ms... (attempt ${attempts}/${maxRetries})`);
+                            await new Promise(resolve => setTimeout(resolve, delayMs));
+                        } else {
+                            // If it's a different error, don't retry
+                            throw error;
+                        }
+                    }
+                }
+            };
+
+            await logSliceWithRetry(10, 3000); // Increased to 10 attempts with 3-second delays
         }
     })();
 }

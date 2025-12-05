@@ -1,6 +1,6 @@
 self.kiri.load(api => {
 
-    console.log('BAMBU MODULE RUNNING');
+    // console.log('BAMBU MODULE RUNNING');
 
     const { uc: ui } = api;
     const { $, h } = api.web;

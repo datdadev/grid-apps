@@ -120,7 +120,7 @@ const minwork = {
             minion.postMessage({ cmd: "label", name: `#${i}` });
             minions.push(minion);
         }
-        console.log(`kiri | init pool | ${version || "rogue"} | ${concurrent}`);
+        // console.log(`kiri | init pool | ${version || "rogue"} | ${concurrent}`);
     },
 
     stop() {
@@ -274,7 +274,7 @@ const minwork = {
     }
 };
 
-console.log(`kiri | init work | ${version || "rogue"}`);
+// console.log(`kiri | init work | ${version || "rogue"}`);
 
 // code is running in the worker / server context
 const dispatch = {

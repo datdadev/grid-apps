@@ -415,6 +415,9 @@ function ServerPortal() {
   const [flattenMode, setFlattenMode] = useState(false);
   const [sortField, setSortField] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -555,6 +558,9 @@ function ServerPortal() {
         throw new Error(data.error || "Không thể tải dữ liệu Server");
       }
       setFiles(data.items || []);
+      // Set sorting by date descending to show newest items first
+      setSortField("date");
+      setSortDir("desc"); // "desc" means newer dates (larger values) come first
       setFlattenMode(true);
       setCurrentPath("");
     } catch (err) {
@@ -631,6 +637,67 @@ function ServerPortal() {
     });
     return { totalSize, stlCount };
   }, [sortedFiles]);
+
+  const totalPages = useMemo(() => {
+    const total = Math.ceil(sortedFiles.length / pageSize) || 1;
+    return total;
+  }, [sortedFiles.length, pageSize]);
+
+  const safePage = useMemo(
+    () => Math.max(1, Math.min(currentPage, totalPages)),
+    [currentPage, totalPages]
+  );
+
+  const paginatedFiles = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return sortedFiles.slice(start, start + pageSize);
+  }, [sortedFiles, safePage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [files, searchTerm, currentPath, flattenMode, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => {
+      const next = Math.min(Math.max(prev, 1), totalPages);
+      return next === prev ? prev : next;
+    });
+  }, [totalPages]);
+
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
+
+  const handlePageSizeChange = (event) => {
+    const value = Number(event.target.value) || PAGE_SIZE_OPTIONS[0];
+    setPageSize(value);
+  };
+
+  const handlePageChange = (delta) => {
+    setCurrentPage((prev) => {
+      const next = prev + delta;
+      return Math.min(Math.max(next, 1), totalPages);
+    });
+  };
+
+  const handlePageInputSubmit = (event) => {
+    event.preventDefault();
+    const parsed = parseInt(pageInput, 10);
+    if (Number.isNaN(parsed)) {
+      setPageInput(String(currentPage));
+      return;
+    }
+    const next = Math.min(Math.max(parsed, 1), totalPages);
+    setCurrentPage(next);
+    setPageInput(String(next));
+  };
+
+  const pageStart =
+    sortedFiles.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd =
+    sortedFiles.length === 0
+      ? 0
+      : Math.min(safePage * pageSize, sortedFiles.length);
 
   const getBreadcrumbs = () => {
     const parts = currentPath.split("/").filter(Boolean);
@@ -827,7 +894,7 @@ function ServerPortal() {
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {sortedFiles.map((file) => {
+            {paginatedFiles.map((file) => {
               const name = file.key.split("/").filter(Boolean).pop();
               const isFolder = file.isFolder;
               const isStlFile = isSTL(file.key);
@@ -901,7 +968,7 @@ function ServerPortal() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sortedFiles.map((file) => {
+                {paginatedFiles.map((file) => {
                   const name = file.key.split("/").filter(Boolean).pop();
                   return (
                     <tr
@@ -953,6 +1020,79 @@ function ServerPortal() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {sortedFiles.length > 0 && (
+          <div className="mt-6 bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-sm text-gray-600">
+              Hiển thị{" "}
+              <span className="font-semibold text-gray-900">
+                {pageStart}-{pageEnd}
+              </span>{" "}
+              trên tổng{" "}
+              <span className="font-semibold text-gray-900">
+                {sortedFiles.length}
+              </span>{" "}
+              tệp
+            </div>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+              <label className="flex items-center text-sm text-gray-500 gap-2">
+                Mỗi trang
+                <select
+                  value={pageSize}
+                  onChange={handlePageSizeChange}
+                  className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size} tệp
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(-1)}
+                  disabled={currentPage <= 1}
+                  className="px-3 py-1 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Trước
+                </button>
+                <span className="text-sm text-gray-600 whitespace-nowrap">
+                  Trang {currentPage}/{totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-1 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Sau
+                </button>
+              </div>
+              <form
+                onSubmit={handlePageInputSubmit}
+                className="flex items-center gap-2 text-sm text-gray-500"
+              >
+                <span>Đi tới</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={pageInput}
+                  onChange={(e) => setPageInput(e.target.value)}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Đi
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </main>

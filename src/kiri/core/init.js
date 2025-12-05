@@ -1725,7 +1725,7 @@ function init_two() {
     // enable modal hiding
     $('mod-x').onclick = api.modal.hide;
 
-    if (!SETUP.s) console.log(`kiri | init main | ${version}`);
+    // if (!SETUP.s) console.log(`kiri | init main | ${version}`);
 
     // send init-done event
     api.event.emit('init-done', stats);

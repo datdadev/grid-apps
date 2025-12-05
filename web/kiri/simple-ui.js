@@ -578,9 +578,9 @@ function ensureBed300(api, retry = false) {
     if (device.deviceName && device.deviceName !== K1_DEVICE_NAME) {
         return;
     }
-    const targetW = 300;
-    const targetD = 300;
-    const targetH = device.maxHeight && device.maxHeight > 0 ? Math.max(300, device.maxHeight) : 300;
+    const targetW = 3000;
+    const targetD = 3000;
+    const targetH = device.maxHeight && device.maxHeight > 0 ? Math.max(3000, device.maxHeight) : 3000;
     const needsUpdate = device.bedWidth !== targetW || device.bedDepth !== targetD || device.maxHeight !== targetH;
     device.bedWidth = targetW;
     device.bedDepth = targetD;
