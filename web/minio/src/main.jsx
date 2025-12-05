@@ -79,6 +79,8 @@ const buildFileUrl = (key, { inline = false, download = false } = {}) => {
   return url;
 };
 
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
+
 let threeLoaderPromise = null;
 const stlPreviewCache = new Map();
 
@@ -147,16 +149,21 @@ const buildStlPreviewDataUrl = async (key, signal) => {
   geometry.center();
   const maxDim = Math.max(size.x, size.y, size.z, 1);
   const scale = 30 / maxDim;
+  const radius =
+    geometry.boundingSphere?.radius ?? Math.max(maxDim, 1) / 2;
+  const scaledRadius = radius * scale;
   const width = DEFAULT_THUMB_SIZE;
   const height = DEFAULT_THUMB_SIZE;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf3f4f6);
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-  const radius = geometry.boundingSphere ? geometry.boundingSphere.radius : maxDim;
-  const distance = Math.max(radius * 3, 40);
-  camera.position.set(distance, distance, distance);
+  const fov = (camera.fov * Math.PI) / 180;
+  const distance = scaledRadius / Math.sin(fov / 2);
+  const minDistance = Math.max(scaledRadius * 2, 18);
+  const cameraDistance = Math.max(distance, minDistance);
+  camera.position.set(cameraDistance, cameraDistance, cameraDistance);
   camera.lookAt(0, 0, 0);
-  camera.far = distance * 5;
+  camera.far = cameraDistance * 5;
   camera.updateProjectionMatrix();
 
   const canvas = document.createElement("canvas");
