@@ -42,6 +42,7 @@
         "@gridspace/net-level-client": "^0.2.3",
         "@gridspace/raster-path": "^1.0.6",
         "@ngrok/ngrok": "^0.0.11",
+        "@scalenc/stl-to-png": "https://github.com/scalenc/stl-to-png.git",
         "@tracespace/parser": "^5.0.0-next.0",
         "@tweenjs/tween.js": "^16.6.0",
         "base64-js": "^1.5.1",

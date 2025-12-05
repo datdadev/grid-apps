@@ -70,6 +70,15 @@ const isSTL = (fileName) => {
   return ext === "stl";
 };
 
+const DEFAULT_THUMB_SIZE = 220;
+
+const buildFileUrl = (key, { inline = false, download = false } = {}) => {
+  let url = `/api/storage/file?key=${encodeURIComponent(key)}`;
+  if (inline) url += "&inline=1";
+  if (download) url += "&download=1";
+  return url;
+};
+
 let threeLoaderPromise = null;
 const stlPreviewCache = new Map();
 
@@ -115,6 +124,78 @@ const loadThreeJS = async () => {
   })();
 
   return threeLoaderPromise;
+};
+
+const buildStlPreviewDataUrl = async (key, signal) => {
+  const response = await fetch(buildFileUrl(key, { inline: true }), {
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error("Fetch STL preview failed");
+  }
+  const buffer = await response.arrayBuffer();
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+  const THREE = await loadThreeJS();
+  const loader = new THREE.STLLoader();
+  const geometry = loader.parse(buffer);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  const size = new THREE.Vector3();
+  geometry.boundingBox.getSize(size);
+  geometry.center();
+  const maxDim = Math.max(size.x, size.y, size.z, 1);
+  const scale = 30 / maxDim;
+  const width = DEFAULT_THUMB_SIZE;
+  const height = DEFAULT_THUMB_SIZE;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf3f4f6);
+  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+  const radius = geometry.boundingSphere ? geometry.boundingSphere.radius : maxDim;
+  const distance = Math.max(radius * 3, 40);
+  camera.position.set(distance, distance, distance);
+  camera.lookAt(0, 0, 0);
+  camera.far = distance * 5;
+  camera.updateProjectionMatrix();
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
+    preserveDrawingBuffer: true,
+    canvas,
+  });
+  renderer.setSize(width, height, false);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(50, 50, 50);
+  scene.add(dirLight);
+
+  const material = new THREE.MeshPhongMaterial({
+    color: 0x2563eb,
+    specular: 0x111111,
+    shininess: 200,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.scale.set(scale, scale, scale);
+  scene.add(mesh);
+
+  renderer.render(scene, camera);
+  const dataUrl = renderer.domElement.toDataURL("image/png");
+  renderer.dispose();
+  if (geometry.dispose) {
+    geometry.dispose();
+  }
+  if (material.dispose) {
+    material.dispose();
+  }
+
+  return dataUrl;
 };
 
 const STLViewer = ({ url }) => {
@@ -237,11 +318,11 @@ const STLViewer = ({ url }) => {
 
 const PREVIEW_FAILED = Symbol('preview-failed');
 
-const useStlPreview = (key, url) => {
+const useStlPreview = (key) => {
   const [preview, setPreview] = useState(() => stlPreviewCache.get(key) || null);
 
   useEffect(() => {
-    if (!key || !url) {
+    if (!key) {
       return undefined;
     }
     if (stlPreviewCache.get(key)) {
@@ -250,69 +331,20 @@ const useStlPreview = (key, url) => {
     }
 
     let mounted = true;
-    let renderer;
-    let scene;
-    let camera;
-    let mesh;
+    const controller = new AbortController();
 
     (async () => {
       try {
-        const THREE = await loadThreeJS();
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
-        camera = new THREE.PerspectiveCamera(35, 1, 0.1, 1000);
-        camera.position.set(40, 40, 40);
-        renderer = new THREE.WebGLRenderer({
-          antialias: true,
-          alpha: true,
-          preserveDrawingBuffer: true,
-        });
-        renderer.setSize(200, 200);
-        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-        scene.add(ambient);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-        dirLight.position.set(50, 80, 50);
-        scene.add(dirLight);
-        const loader = new THREE.STLLoader();
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error("Failed to fetch STL");
+        const thumbnail = await buildStlPreviewDataUrl(key, controller.signal);
+        const cacheValue = thumbnail || PREVIEW_FAILED;
+        stlPreviewCache.set(key, cacheValue);
+        if (mounted) {
+          setPreview(cacheValue);
         }
-        const buffer = await response.arrayBuffer();
-        const geometry = loader.parse(buffer);
-        geometry.computeBoundingBox();
-        geometry.boundingBox.getCenter(new THREE.Vector3());
-        geometry.center();
-        const material = new THREE.MeshPhongMaterial({
-          color: 0x2563eb,
-          specular: 0x111111,
-          shininess: 60,
-        });
-        mesh = new THREE.Mesh(geometry, material);
-        const box = geometry.boundingBox;
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        const scale = 25 / maxDim;
-        mesh.scale.set(scale, scale, scale);
-        mesh.rotation.x = -Math.PI / 4;
-        mesh.rotation.z = Math.PI / 5;
-        scene.add(mesh);
-        renderer.render(scene, camera);
-        requestAnimationFrame(() => {
-          let dataUrl = null;
-          try {
-            dataUrl = renderer.domElement.toDataURL("image/png");
-          } catch (err) {
-            console.warn("Canvas toDataURL failed", err);
-          }
-          const cacheValue = dataUrl || PREVIEW_FAILED;
-          stlPreviewCache.set(key, cacheValue);
-          if (mounted) {
-            setPreview(cacheValue);
-          }
-        });
       } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
         console.error("STL preview build error", err);
         stlPreviewCache.set(key, PREVIEW_FAILED);
         if (mounted) {
@@ -323,20 +355,15 @@ const useStlPreview = (key, url) => {
 
     return () => {
       mounted = false;
-      if (mesh && mesh.geometry) {
-        mesh.geometry.dispose();
-      }
-      if (renderer) {
-        renderer.dispose();
-      }
+      controller.abort();
     };
-  }, [key, url]);
+  }, [key]);
 
   return preview;
 };
 
-const STLPreviewImage = ({ fileKey, url }) => {
-  const preview = useStlPreview(fileKey, url);
+const STLPreviewImage = ({ fileKey }) => {
+  const preview = useStlPreview(fileKey);
   if (preview && preview !== PREVIEW_FAILED) {
     return (
       <img
@@ -797,7 +824,6 @@ function ServerPortal() {
               const name = file.key.split("/").filter(Boolean).pop();
               const isFolder = file.isFolder;
               const isStlFile = isSTL(file.key);
-              const inlineUrl = buildFileUrl(file.key, { inline: true });
               return (
                 <div
                   key={file.key}
@@ -808,7 +834,7 @@ function ServerPortal() {
                     {isFolder ? (
                       <Folder className="w-10 h-10 text-yellow-500" />
                     ) : isStlFile ? (
-                      <STLPreviewImage fileKey={file.key} url={inlineUrl} />
+                      <STLPreviewImage fileKey={file.key} />
                     ) : (
                       <div className="w-16 h-16 flex items-center justify-center rounded-full bg-white">
                         {getFileIcon(name)}

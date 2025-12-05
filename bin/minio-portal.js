@@ -12,9 +12,23 @@ const path = require('path');
 const { URL } = require('url');
 const connect = require('connect');
 const serveStatic = require('serve-static');
-
 const log = (...args) => console.log('[minio-portal]', ...args);
 const warn = (...args) => console.warn('[minio-portal]', ...args);
+
+const loadStl2Png = () => {
+  try {
+    const mod = require('@scalenc/stl-to-png/dist');
+    if (mod && typeof mod.stl2png === 'function') {
+      return mod.stl2png;
+    }
+    throw new Error('stl2png export missing');
+  } catch (error) {
+    warn('STL thumbnail generator unavailable:', error.message);
+    return null;
+  }
+};
+
+const stl2png = loadStl2Png();
 
 const ROOT = path.join(__dirname, '..', 'web', 'minio');
 const PORT =
@@ -45,6 +59,7 @@ const MINIO_SECRET_KEY =
   process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD;
 const MINIO_BUCKET = process.env.MINIO_BUCKET || 'storage1';
 const MINIO_REGION = process.env.MINIO_REGION;
+const DEFAULT_THUMB_SIZE = 220;
 
 const loadMinioModule = () => {
   try {
@@ -278,6 +293,28 @@ const streamObject = async (key, mode, res) => {
   }
 };
 
+const clampThumbnailSize = (value, fallback = 220) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(Math.max(Math.round(parsed), 64), 512);
+};
+
+const readObjectBuffer = async (key) => {
+  const objectStream = await minioClient.getObject(MINIO_BUCKET, key);
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    objectStream.on('data', (chunk) => {
+      chunks.push(chunk);
+    });
+    objectStream.on('error', reject);
+    objectStream.on('end', () => {
+      resolve(Buffer.concat(chunks));
+    });
+  });
+};
+
 const getStatusPayload = () => ({
   ok: bucketReady,
   bucket: MINIO_BUCKET,
@@ -324,6 +361,47 @@ app.use((req, res, next) => {
         ok: false,
         error: 'MinIO bucket not ready',
       });
+    }
+
+    if (pathname === '/api/storage/thumbnail') {
+      const key = url.searchParams.get('key');
+      if (!key) {
+        return sendJSON(res, 400, { ok: false, error: 'missing key' });
+      }
+      if (!stl2png) {
+        return sendJSON(res, 503, {
+          ok: false,
+          error: 'STL thumbnail generator unavailable',
+        });
+      }
+      try {
+        const width = clampThumbnailSize(
+          url.searchParams.get('width'),
+          DEFAULT_THUMB_SIZE
+        );
+        const height = clampThumbnailSize(
+          url.searchParams.get('height'),
+          width
+        );
+        const buffer = await readObjectBuffer(key);
+        const png = stl2png(buffer, { width, height });
+        const headers = {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=600, must-revalidate',
+          'Content-Length': png.length,
+        };
+        Object.entries(headers).forEach(([header, value]) => {
+          res.setHeader(header, value);
+        });
+        res.end(png);
+        return;
+      } catch (error) {
+        warn('MinIO thumbnail error:', error.message);
+        return sendJSON(res, 500, {
+          ok: false,
+          error: 'Không thể dựng hình STL',
+        });
+      }
     }
 
     if (pathname === '/api/storage/list') {
